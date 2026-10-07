@@ -7,19 +7,15 @@ from collections import OrderedDict
 class MLP(nn.Module):
     def __init__(self, layer_number, input_neurons, hidden_neurons, output_neurons):
         super(MLP, self).__init__()
-        # layer_number = int
-        # hidden_neurons = list(int)
         capas_dict = OrderedDict()
         if layer_number > 1:
             capas_dict["input_layer"] = nn.Linear(input_neurons, hidden_neurons[0])
             capas_dict["activation_layer_0"] = nn.ReLU()
             for i in range(0, layer_number - 1):
-                print(i)
                 capas_dict[f"hidden_layer_{i+1}"] = nn.Linear(
                     hidden_neurons[i], hidden_neurons[i + 1]
                 )
                 capas_dict[f"activation_layer_{i+1}"] = nn.ReLU()
-                print(capas_dict)
             capas_dict["output_layer"] = nn.Linear(hidden_neurons[-1], output_neurons)
             capas_dict[f"activation_layer_{layer_number}"] = nn.Sigmoid()
         else:

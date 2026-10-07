@@ -3,15 +3,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from .utils import save_logs
-from .graph_analysis import save_graph_analysis
 
 # caso 1: aleatoria
 # caso 2: compleja
 # caso 3: ordenada
 
 
-def train_model(model, train_loader, test_loader, path, device):
-    epochs = 40
+def train_model(model, train_loader, test_loader, path, device, epochs=60):
     lr = 0.001
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -22,7 +20,6 @@ def train_model(model, train_loader, test_loader, path, device):
     logs_path = path + "/logs"
     weights_path = path + "/weights"
     bias_path = path + "/biases"
-    graph_path = path + "/graph_analysis"
     checkpoint_path = path + "/checkpoints"
     os.makedirs(checkpoint_path, exist_ok=True)
     for epoch in range(epochs):
@@ -53,23 +50,28 @@ def train_model(model, train_loader, test_loader, path, device):
             model.eval()
             correct_predictions_test = 0
             total_samples_test = 0
+            total_test_loss = 0.0
             with torch.no_grad():
                 for x_batch, y_batch in test_loader:
                     x_batch = x_batch.to(device)
                     y_batch = y_batch.unsqueeze(1)
                     y_batch = y_batch.to(device)
                     outputs = model(x_batch)
+                    test_loss = criterion(outputs, y_batch)
+                    total_test_loss += test_loss.item() * x_batch.shape[0]
                     predictions = (outputs > 0.5).float()
                     correct_predictions_test += (predictions == y_batch).sum().item()
                     total_samples_test += x_batch.shape[0]
+            test_loss_step = total_test_loss / total_samples_test
             test_accuracy_step = 100 * (correct_predictions_test / total_samples_test)
             model.train()
             line_to_add = (
                 f"Epoch [{epoch+1}/{epochs}], "
                 f"Step [{step+1}/{len(train_loader)}] | "
-                f"Loss: {loss.item():.4f} | "
+                f"Train Loss: {loss.item():.4f} | "
                 f"Train Epoch Actual Accurracy (accumulated): {epoch_accumulated_train_accuracy:.2f}% | "
                 f"Train Step Accuracy: {train_step_accuracy:.2f}% | "
+                f"Test Loss: {test_loss_step:.4f} | "
                 f"Test Step Accuracy: {test_accuracy_step:.2f}%"
             )
             print(line_to_add)
@@ -89,7 +91,6 @@ def train_model(model, train_loader, test_loader, path, device):
         scheduler.step()
         model.save_edgelist(weights_path, epoch)
         model.save_biaslist(bias_path, epoch)
-        save_graph_analysis(model, graph_path, epoch)
         checkpoint = {
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
