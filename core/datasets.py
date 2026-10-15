@@ -8,7 +8,15 @@ from torch.utils.data import TensorDataset, DataLoader
 
 
 def load_dataset(
-    task, batch_size, n_samples, n_features, n_classes, cluster_std, class_sep
+    task,
+    batch_size,
+    n_samples,
+    n_features,
+    n_classes,
+    cluster_std,
+    class_sep,
+    n_informative,
+    n_redundant,
 ):
     if task == "linear":
         x, y = make_blobs(
@@ -23,6 +31,8 @@ def load_dataset(
             n_features=n_features,
             n_classes=n_classes,
             class_sep=class_sep,
+            n_informative=n_informative,
+            n_redundant=n_redundant
         )
     else:
         raise ValueError(f"Invalid task: {task}")

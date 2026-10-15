@@ -11,9 +11,9 @@ from .utils import save_logs
 
 def train_model(model, train_loader, test_loader, path, device, epochs=60):
     lr = 0.001
-    criterion = nn.BCELoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     best_accuracy_test = 0
     best_epoch = 0
     best_step = 0
@@ -22,30 +22,28 @@ def train_model(model, train_loader, test_loader, path, device, epochs=60):
     bias_path = path + "/biases"
     checkpoint_path = path + "/checkpoints"
     os.makedirs(checkpoint_path, exist_ok=True)
+    model.to(device)
     for epoch in range(epochs):
         log_file = save_logs(epoch, logs_path)
         model.train()
         correct_predictions_train_epoch = 0
         total_samples_train_epoch = 0
         for step, (x_batch, y_batch) in enumerate(train_loader):
-            correct_predictions_step = 0
-            total_samples_step = 0
             x_batch = x_batch.to(device)
-            y_batch = y_batch.unsqueeze(1)
-            y_batch = y_batch.to(device)
+            y_batch = y_batch.to(device).long().view(-1)
             optimizer.zero_grad()
             outputs = model(x_batch)
             loss = criterion(outputs, y_batch)
             loss.backward()
             optimizer.step()
-            predictions = (outputs > 0.5).float()
-            correct_predictions_train_epoch += (predictions == y_batch).sum().item()
-            total_samples_train_epoch += x_batch.shape[0]
+            predictions = outputs.argmax(dim=1)
+            correct_predictions_step = (predictions == y_batch).sum().item()
+            total_samples_step = y_batch.size(0)
+            correct_predictions_train_epoch += correct_predictions_step
+            total_samples_train_epoch += total_samples_step
             epoch_accumulated_train_accuracy = 100 * (
                 correct_predictions_train_epoch / total_samples_train_epoch
             )
-            correct_predictions_step += (predictions == y_batch).sum().item()
-            total_samples_step += x_batch.shape[0]
             train_step_accuracy = 100 * (correct_predictions_step / total_samples_step)
             model.eval()
             correct_predictions_test = 0
@@ -54,12 +52,11 @@ def train_model(model, train_loader, test_loader, path, device, epochs=60):
             with torch.no_grad():
                 for x_batch, y_batch in test_loader:
                     x_batch = x_batch.to(device)
-                    y_batch = y_batch.unsqueeze(1)
-                    y_batch = y_batch.to(device)
+                    y_batch = y_batch.to(device).long().view(-1)
                     outputs = model(x_batch)
                     test_loss = criterion(outputs, y_batch)
                     total_test_loss += test_loss.item() * x_batch.shape[0]
-                    predictions = (outputs > 0.5).float()
+                    predictions = outputs.argmax(dim=1)
                     correct_predictions_test += (predictions == y_batch).sum().item()
                     total_samples_test += x_batch.shape[0]
             test_loss_step = total_test_loss / total_samples_test

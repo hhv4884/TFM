@@ -10,12 +10,11 @@ from .datasets import (
 )
 from .train import train_model
 from .utils import create_base_path, create_dimensions_string
-from .graph_analysis import (
+from graph_analysis.graph_analysis import (
     analyze_model_with_thresholds,
-    save_final_weight_panels,
-    get_best_epoch_from_logs,
+    create_separated_panels,
 )
-
+from graph_analysis.report_utils import get_best_epoch_from_logs
 
 def run_experiment(
     task,
@@ -30,6 +29,8 @@ def run_experiment(
     output_neurons,
     device,
     epochs,
+    n_informative,
+    n_redundant,
     thresholds=None,
     experiment_name=None,
 ):
@@ -54,12 +55,20 @@ def run_experiment(
         dimensions,
         parameter_name,
         parameter_value,
-        experiment_name=experiment_name
+        experiment_name=experiment_name,
     )
     model_path = os.path.join(model_base_path, f"model_{model_id}")
     os.makedirs(model_path, exist_ok=True)
     train_loader, test_loader, x, y, train_index, test_index = load_dataset(
-        task, batch_size, n_samples, input_neurons, n_classes, cluster_std, class_sep
+        task,
+        batch_size,
+        n_samples,
+        input_neurons,
+        n_classes,
+        cluster_std,
+        class_sep,
+        n_informative,
+        n_redundant,
     )
     save_dataset(x, y, dataset_path)
     dataset_split_path = os.path.join(model_path, "dataset_split")
@@ -84,8 +93,13 @@ def run_experiment(
         checkpoint = torch.load(checkpoint_file, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         analyze_model_with_thresholds(
-            model=model, graph_path=graph_path, epoch=epoch, thresholds=thresholds
+            model=model,
+            graph_path=graph_path,
+            epoch=epoch,
+            best_epoch=best_epoch,
+            last_epoch=epochs - 1,
+            thresholds=thresholds,
         )
-    save_final_weight_panels(
+    create_separated_panels(
         model_path=model_path, graph_path=graph_path, logs_path=logs_path, epochs=epochs
     )

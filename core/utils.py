@@ -47,18 +47,3 @@ def save_logs(epoch, path):
     log_file = f"{path}/log_epoch_{epoch}.txt"
     log_file = open(log_file, "w")
     return log_file
-
-
-def paint_dataset_sample(task):
-    if task == "linear":
-        x, y = make_blobs(n_samples=1000, n_features=2, centers=2, cluster_std=5.0)
-    else:
-        x, y = make_classification(1000, 2, 0.5, 2, 0)
-    # print(x.shape)
-    plt.scatter(x[:, 0], x[:, 1], c=y)
-    plt.xlabel("feature 0")
-    plt.ylabel("feature 1")
-    plt.title(f"dataset: {task}")
-    print(os.getcwd())
-    plt.savefig("dataset_images/dataset_blobs.png", dpi=300, bbox_inches="tight")
-    plt.show()
