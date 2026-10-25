@@ -3,63 +3,53 @@ import torch
 from .models import MLP
 from .datasets import (
     load_dataset,
-    save_dataset,
-    save_split_index,
-    get_dataset_parameter,
-    get_next_model_id,
 )
 from .train import train_model
-from .utils import create_base_path, create_dimensions_string
-from graph_analysis.graph_analysis import (
-    analyze_model_with_thresholds,
-    create_separated_panels,
-)
-from graph_analysis.report_utils import get_best_epoch_from_logs
+from .utils import create_dimensions_string
+from graph_analysis.graph_analysis import create_separated_panels
+
 
 def run_experiment(
     task,
     n_samples,
-    input_neurons,
     n_classes,
+    n_informative,
+    n_redundant,
     cluster_std,
     class_sep,
     batch_size,
+    input_neurons,
     hidden_layers,
     hidden_neurons,
     output_neurons,
     device,
+    thresholds,
     epochs,
-    n_informative,
-    n_redundant,
-    thresholds=None,
-    experiment_name=None,
+    experiment_name,
+    model_id,
 ):
     dimensions = create_dimensions_string(input_neurons, hidden_neurons, output_neurons)
-    parameter_name, parameter_value = get_dataset_parameter(
-        task, class_sep, cluster_std
-    )
-    dataset_base_path = create_base_path(
-        "datasets",
-        n_samples,
-        task,
-        dimensions,
-        parameter_name,
-        parameter_value,
-    )
-    model_id = get_next_model_id(dataset_base_path)
-    dataset_path = os.path.join(dataset_base_path, f"model_{model_id}.csv")
-    model_base_path = create_base_path(
+    if task == "classification":
+        parameter_name = "class_sep"
+        parameter_value = class_sep
+    elif task == "linear":
+        parameter_name = "cluster_std"
+        parameter_value = cluster_std
+    else:
+        raise ValueError("This is not a registered type of task.")
+    model_path = os.path.join(
         "trained_models",
-        n_samples,
+        str(n_samples),
         task,
         dimensions,
         parameter_name,
-        parameter_value,
-        experiment_name=experiment_name,
+        str(parameter_value),
+        experiment_name,
+        f"model_{model_id}",
     )
-    model_path = os.path.join(model_base_path, f"model_{model_id}")
     os.makedirs(model_path, exist_ok=True)
-    train_loader, test_loader, x, y, train_index, test_index = load_dataset(
+    csv_path = os.path.join(model_path, "csv")
+    train_loader, test_loader = load_dataset(
         task,
         batch_size,
         n_samples,
@@ -70,36 +60,26 @@ def run_experiment(
         n_informative,
         n_redundant,
     )
-    save_dataset(x, y, dataset_path)
-    dataset_split_path = os.path.join(model_path, "dataset_split")
-    save_split_index(train_index, test_index, dataset_split_path)
-    model = MLP(hidden_layers, input_neurons, hidden_neurons, output_neurons)
+    model = MLP(
+        hidden_layers,
+        input_neurons,
+        hidden_neurons,
+        output_neurons,
+    )
     model.to(device)
     train_model(
         model,
         train_loader,
         test_loader,
-        model_path,
+        csv_path,
         device,
+        epochs,
+        thresholds,
+    )
+    create_separated_panels(
+        model_path=model_path,
+        graph_path=csv_path,
+        logs_path=None,
         epochs=epochs,
     )
-    graph_path = os.path.join(model_path, "graph_analysis")
-    logs_path = os.path.join(model_path, "logs")
-    checkpoint_path = os.path.join(model_path, "checkpoints")
-    best_epoch = get_best_epoch_from_logs(logs_path)
-    epochs_to_analyze = sorted(set([0, best_epoch, epochs - 1]))
-    for epoch in epochs_to_analyze:
-        checkpoint_file = os.path.join(checkpoint_path, f"epoch_{epoch}.pt")
-        checkpoint = torch.load(checkpoint_file, map_location=device)
-        model.load_state_dict(checkpoint["model_state_dict"])
-        analyze_model_with_thresholds(
-            model=model,
-            graph_path=graph_path,
-            epoch=epoch,
-            best_epoch=best_epoch,
-            last_epoch=epochs - 1,
-            thresholds=thresholds,
-        )
-    create_separated_panels(
-        model_path=model_path, graph_path=graph_path, logs_path=logs_path, epochs=epochs
-    )
+    return model_path
