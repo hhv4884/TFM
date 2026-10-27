@@ -314,9 +314,17 @@ def save_training_metrics_plot(
             axes_y = [ax1]
             for _ in range(5):
                 axes_y.append(ax1.twinx())
+            ax1.yaxis.set_label_position("left")
+            ax1.yaxis.tick_left()
+            ax1.spines["left"].set_position(("outward", 0))
             for i, ax in enumerate(axes_y[1:], start=1):
-                ax.spines["right"].set_position(("outward", 55 * i))
-            fig.subplots_adjust(right=0.55)
+                ax.spines["right"].set_visible(False)
+                ax.spines["left"].set_visible(True)
+                ax.yaxis.set_label_position("left")
+                ax.yaxis.tick_left()
+                ax.spines["left"].set_position(("outward", 55 * i))
+                ax.patch.set_visible(False)
+            fig.subplots_adjust(left=0.48, right=0.77)
             curves = [
                 (
                     losses_df["epoch"],
@@ -374,7 +382,11 @@ def save_training_metrics_plot(
                 )
                 ax.set_ylabel(label, color=color)
                 ax.tick_params(axis="y", colors=color)
-                ax.spines["right"].set_color(color)
+                if ax is ax1:
+                    ax.spines["left"].set_color(color)
+                else:
+                    ax.spines["left"].set_color(color)
+                    ax.spines["right"].set_visible(False)
                 lines.append(line)
             ax1.axvline(
                 x=best_epoch,
@@ -398,7 +410,7 @@ def save_training_metrics_plot(
             ax1.legend(
                 handles=lines,
                 loc="upper left",
-                bbox_to_anchor=(1.65, 1),
+                bbox_to_anchor=(1.30, 1),
                 fontsize=9,
             )
             filename = f"training_metrics_partition_{partition}_" f"{neuron_type}.pdf"
