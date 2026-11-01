@@ -109,19 +109,23 @@ def _normalize_clustering_columns(clustering_df):
 
 
 def _normalize_strength_columns(strength_data):
-    if strength_data is None:
-        return pd.DataFrame()
-    df = strength_data.copy()
-    required_columns = {
+    required_columns = [
         "epoch",
         "hidden_layer",
         "neuron_index",
         "input_strength",
         "output_strength",
         "strength",
-    }
-    if not required_columns.issubset(df.columns):
-        raise ValueError("Missing columns in strength data")
+    ]
+    if strength_data is None or strength_data.empty:
+        return pd.DataFrame(columns=required_columns)
+    df = strength_data.copy()
+    df.columns = (
+        df.columns.astype(str).str.strip().str.replace("\ufeff", "", regex=False)
+    )
+    missing_columns = set(required_columns) - set(df.columns)
+    if missing_columns:
+        raise ValueError(f"Missing columns in strength data: {missing_columns}")
     for column in required_columns:
         df[column] = pd.to_numeric(df[column], errors="coerce")
     return df.dropna(subset=["epoch", "hidden_layer", "neuron_index", "strength"])
