@@ -15,6 +15,10 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
         )
     losses, best_epoch = load_losses_from_csv(epochs_info_path)
     selected_epochs = sorted(set([0, best_epoch, epochs]))
+    strength_csv = os.path.join(graph_path, "strength", "strength_index.csv")
+    strength_df = (
+        pd.read_csv(strength_csv) if os.path.isfile(strength_csv) else pd.DataFrame()
+    )
     plots_root = os.path.join(model_path, "plots")
     os.makedirs(plots_root, exist_ok=True)
     for threshold_folder in sorted(os.listdir(graph_path)):
@@ -83,4 +87,21 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
                 losses=losses,
                 degree_data=partition_degree_df,
                 clustering_data=partition_clustering_df,
+            )
+    if not strength_df.empty:
+        hidden_layers = sorted(strength_df["hidden_layer"].dropna().astype(int).unique())
+        for hidden_layer in hidden_layers:
+            hidden_layer_path = os.path.join(
+                plots_root,
+                "strength",
+                f"hidden_layer_{hidden_layer}",
+            )
+            hidden_layer_data = strength_df[strength_df["hidden_layer"] == hidden_layer].copy()
+            save_partition_pdf_plots(
+                partition_path=hidden_layer_path,
+                partition_number=hidden_layer,
+                epochs=selected_epochs,
+                losses=losses,
+                strength_data=hidden_layer_data,
+                hidden_layer=hidden_layer,
             )

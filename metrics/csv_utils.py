@@ -1,5 +1,6 @@
 import os
 import csv
+import pandas as pd
 
 
 def update_csv_epoch_info(
@@ -11,8 +12,10 @@ def update_csv_epoch_info(
     test_accuracy,
     csv_path,
     thresholds,
+    calculate_strength=False,
 ):
     from .analysis import analyze_all_partitions
+
     os.makedirs(csv_path, exist_ok=True)
     epoch_info = os.path.join(csv_path, "epochs_info.csv")
     if not os.path.exists(epoch_info):
@@ -33,7 +36,7 @@ def update_csv_epoch_info(
             new_row = [epoch, train_loss, train_accuracy, test_loss, test_accuracy]
             writer = csv.writer(f)
             writer.writerow(new_row)
-    analyze_all_partitions(model, epoch, thresholds, csv_path)
+    analyze_all_partitions(model, epoch, thresholds, csv_path, calculate_strength)
 
 
 def update_csv_clustering_info(
@@ -163,3 +166,27 @@ def update_csv_degree_info(
         ]
         writer = csv.writer(f)
         writer.writerows(rows)
+
+
+def update_csv_strength_info(
+    epoch, hidden_layer, input_strength, output_strength, total_strength, strength_path
+):
+    os.makedirs(strength_path, exist_ok=True)
+    csv_file = os.path.join(strength_path, "strength_index.csv")
+    data = []
+    for i in range(len(total_strength)):
+        data.append(
+            {
+                "epoch": epoch,
+                "hidden_layer": hidden_layer,
+                "neuron_index": i,
+                "input_strength": input_strength[i].item(),
+                "output_strength": output_strength[i].item(),
+                "strength": total_strength[i].item(),
+            }
+        )
+    df = pd.DataFrame(data)
+    if os.path.isfile(csv_file):
+        df.to_csv(csv_file, mode="a", header=False, index=False)
+    else:
+        df.to_csv(csv_file, index=False)

@@ -11,25 +11,40 @@ def experiment():
     p_inf = 1 / 10
     p_red = 1 / 4
     alpha = 10
-    experiments = [{
-        "architectures": [(2500, [1000], n_classes)],
-        "difficulties": [1.0],
-        "thresholds": [None],
-        "n_models": 5},
-        {"architectures": [(2500, [1000], n_classes)],
-         "difficulties": [0.5, 5.0],
-         "thresholds": [None],
-         "n_models":1},
-        {"architectures": [(2500, [1000], n_classes)],
-         "difficulties": [1.0],
-         "thresholds": [None, 50, 75, 90, 95, 99],
-         "n_models": 1},
-        {"architectures": [(1000, [1000], n_classes),
-                           (1000, [2500], n_classes),
-                           (2500, [2500], n_classes)],
-         "difficulties": [1.0],
-         "thresholds": [None],
-         "n_models":1}]
+    experiments = [
+        {
+            "architectures": [(2500, [1000], n_classes)],
+            "difficulties": [1.0],
+            "thresholds": [None],
+            "n_models": 5,
+            "calculate_strength": True,
+        },
+        {
+            "architectures": [(2500, [1000], n_classes)],
+            "difficulties": [0.5, 5.0],
+            "thresholds": [None],
+            "n_models": 1,
+            "calculate_strength": True,
+        },
+        {
+            "architectures": [(2500, [1000], n_classes)],
+            "difficulties": [1.0],
+            "thresholds": [None, 50, 75, 90, 95, 99],
+            "n_models": 1,
+            "calculate_strength": False,
+        },
+        {
+            "architectures": [
+                (1000, [1000], n_classes),
+                (1000, [2500], n_classes),
+                (2500, [2500], n_classes),
+            ],
+            "difficulties": [1.0],
+            "thresholds": [None],
+            "n_models": 1,
+            "calculate_strength": True,
+        },
+    ]
     for experiment_number, experiment_config in enumerate(experiments, start=1):
         for architecture_number, architecture in enumerate(
             experiment_config["architectures"], start=1
@@ -63,6 +78,7 @@ def experiment():
                         epochs=epochs,
                         experiment_name=f"experiment_{experiment_number}",
                         model_id=model_id,
+                        calculate_strength=experiment_config["calculate_strength"],
                     )
 
 

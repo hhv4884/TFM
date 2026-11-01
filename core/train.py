@@ -52,7 +52,7 @@ def evaluate_model(model, loader, criterion, device):
     return (total_loss / n_samples, 100.0 * (correct / n_samples))
 
 
-def train_model(model, train_loader, test_loader, csv_path, device, epochs, thresholds):
+def train_model(model, train_loader, test_loader, csv_path, device, epochs, thresholds, calculate_strength=False):
     model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -72,6 +72,7 @@ def train_model(model, train_loader, test_loader, csv_path, device, epochs, thre
         epoch_0_test_accuracy,
         csv_path,
         thresholds,
+        calculate_strength
     )
     for epoch in range(epochs):
         train_loss, train_accuracy = train_epoch(
@@ -91,6 +92,7 @@ def train_model(model, train_loader, test_loader, csv_path, device, epochs, thre
             test_accuracy,
             csv_path,
             thresholds,
+            calculate_strength
         )
         scheduler.step()
     return csv_path

@@ -27,6 +27,7 @@ def run_experiment(
     epochs,
     experiment_name,
     model_id,
+    calculate_strength=False,
 ):
     dimensions = create_dimensions_string(input_neurons, hidden_neurons, output_neurons)
     if task == "classification":
@@ -75,6 +76,7 @@ def run_experiment(
         device,
         epochs,
         thresholds,
+        calculate_strength
     )
     create_separated_panels(
         model_path=model_path,

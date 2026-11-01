@@ -41,6 +41,42 @@ def plot_clustering_counts(ax, rows, neuron_type, degree_df, epoch, losses):
     ax.grid(axis="y", alpha=0.3)
 
 
+def plot_strength_counts(ax, rows):
+    if not rows.empty:
+        values = rows["strength"].to_numpy(dtype=float)
+        min_value = values.min()
+        max_value = values.max()
+        if min_value == max_value:
+            margin = max(abs(min_value) * 0.05, 0.005)
+            bins = np.linspace(min_value - margin, max_value + margin, 36)
+        else:
+            bins = np.linspace(min_value, max_value, 36)
+        ax.hist(values, bins=bins, edgecolor="black")
+        stats_text = (
+            f"Mean: {np.mean(values):.4f}\n"
+            f"Median: {np.median(values):.4f}\n"
+            f"Std. dev.: {np.std(values):.4f}"
+        )
+        ax.text(
+            0.98,
+            0.97,
+            stats_text,
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
+            bbox=dict(
+                boxstyle="round,pad=0.4",
+                facecolor="white",
+                edgecolor="gray",
+                alpha=0.9,
+            ),
+        )
+    ax.set_xlabel("Strength")
+    ax.set_ylabel("Number of Neurons")
+    ax.grid(axis="y", alpha=0.3)
+
+
 def _normalize_degree_columns(degree_df):
     if degree_df.empty:
         return pd.DataFrame(columns=["epoch", "degree_type", "degree", "count"])
@@ -72,6 +108,25 @@ def _normalize_clustering_columns(clustering_df):
     return clustering_df.dropna(subset=["epoch", "clustering_coefficient"])
 
 
+def _normalize_strength_columns(strength_data):
+    if strength_data is None:
+        return pd.DataFrame()
+    df = strength_data.copy()
+    required_columns = {
+        "epoch",
+        "hidden_layer",
+        "neuron_index",
+        "input_strength",
+        "output_strength",
+        "strength",
+    }
+    if not required_columns.issubset(df.columns):
+        raise ValueError("Missing columns in strength data")
+    for column in required_columns:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    return df.dropna(subset=["epoch", "hidden_layer", "neuron_index", "strength"])
+
+
 def save_partition_pdf_plots(
     partition_path,
     partition_number,
@@ -79,6 +134,8 @@ def save_partition_pdf_plots(
     losses,
     degree_data=None,
     clustering_data=None,
+    strength_data=None,
+    hidden_layer=None,
 ):
     os.makedirs(partition_path, exist_ok=True)
     degree_df = _normalize_degree_columns(
@@ -86,6 +143,9 @@ def save_partition_pdf_plots(
     )
     clustering_df = _normalize_clustering_columns(
         clustering_data if clustering_data is not None else pd.DataFrame()
+    )
+    strength_df = _normalize_strength_columns(
+        strength_data if strength_data is not None else pd.DataFrame()
     )
     if not degree_df.empty:
         for degree_type in ("in", "out"):
@@ -127,6 +187,26 @@ def save_partition_pdf_plots(
                 os.path.join(
                     partition_path,
                     f"partition_{partition_number}_{neuron_type}_clustering.pdf",
+                ),
+                format="pdf",
+                bbox_inches="tight",
+            )
+            plt.close(fig)
+
+    if not strength_df.empty:
+        strength_df = strength_df[strength_df["hidden_layer"] == hidden_layer]
+        if not strength_df.empty:
+            fig, axes = plt.subplots(1, len(epochs), figsize=(15, 4), squeeze=False)
+            axes = axes[0]
+            for ax, epoch in zip(axes, epochs):
+                rows = strength_df[strength_df["epoch"] == epoch]
+                plot_strength_counts(ax, rows)
+                ax.set_title(f"Epoch {epoch}")
+            fig.tight_layout()
+            fig.savefig(
+                os.path.join(
+                    partition_path,
+                    f"hidden_layer_{hidden_layer}_strength_distribution.pdf",
                 ),
                 format="pdf",
                 bbox_inches="tight",
@@ -312,7 +392,7 @@ def save_training_metrics_plot(
                 continue
             fig, ax1 = plt.subplots(figsize=(17, 5))
             axes_y = [ax1]
-            for _ in range(5):
+            for _ in range(4):
                 axes_y.append(ax1.twinx())
             ax1.yaxis.set_label_position("left")
             ax1.yaxis.tick_left()

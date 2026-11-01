@@ -2,7 +2,11 @@ import os
 import torch
 import torch.nn as nn
 import numpy as np
-from .csv_utils import update_csv_clustering_info, update_csv_degree_info
+from .csv_utils import (
+    update_csv_clustering_info,
+    update_csv_degree_info,
+    update_csv_strength_info,
+)
 
 
 def degree_distribution(degrees):
@@ -79,6 +83,29 @@ def clustering_index(weight, epoch, threshold, clustering_path, partition_number
     )
 
 
+def strength(weight):
+    abs_weight = torch.abs(weight)
+    input_strength = abs_weight.sum(dim=1)
+    output_strength = abs_weight.sum(dim=0)
+    return input_strength, output_strength
+
+
+def strength_index(
+    incoming_weight, outgoing_weight, epoch, strength_path, hidden_layer
+):
+    input_strength, _ = strength(incoming_weight)
+    _, output_strength = strength(outgoing_weight)
+    total_strength = input_strength + output_strength
+    update_csv_strength_info(
+        epoch,
+        hidden_layer,
+        input_strength,
+        output_strength,
+        total_strength,
+        strength_path,
+    )
+
+
 def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
     weight = weight.detach().cpu()
     for threshold_percentile in thresholds:
@@ -88,7 +115,9 @@ def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
             threshold = torch.median(torch.abs(weight)).item()
         else:
             degree_path = os.path.join(csv_path, f"threshold_{threshold_percentile}")
-            clustering_path = os.path.join(csv_path, f"threshold_{threshold_percentile}")
+            clustering_path = os.path.join(
+                csv_path, f"threshold_{threshold_percentile}"
+            )
             threshold = torch.quantile(
                 torch.abs(weight).float(), threshold_percentile / 100.0
             ).item()
@@ -96,7 +125,19 @@ def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
         clustering_index(weight, epoch, threshold, clustering_path, partition_number)
 
 
-def analyze_all_partitions(model, epoch, thresholds, csv_path):
+def analyze_all_partitions(
+    model, epoch, thresholds, csv_path, calculate_strength=False
+):
     partitions = [layer for layer in model.net if isinstance(layer, nn.Linear)]
     for partition_number, layer in enumerate(partitions, start=1):
         analyze_partition(layer.weight, epoch, thresholds, csv_path, partition_number)
+    if calculate_strength:
+        strength_path = os.path.join(csv_path, "strength")
+        for i in range(len(partitions) - 1):
+            strength_index(
+                partitions[i],
+                partitions[i + 1],
+                epoch,
+                strength_path,
+                hidden_layer=i + 1,
+            )
