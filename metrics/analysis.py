@@ -135,8 +135,8 @@ def analyze_all_partitions(
         strength_path = os.path.join(csv_path, "strength")
         for i in range(len(partitions) - 1):
             strength_index(
-                partitions[i],
-                partitions[i + 1],
+                partitions[i].weight,
+                partitions[i + 1].weight,
                 epoch,
                 strength_path,
                 hidden_layer=i + 1,
