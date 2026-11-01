@@ -310,7 +310,7 @@ def save_training_metrics_plot(
                     f"{partition}, tipo {neuron_type}."
                 )
                 continue
-            fig, ax1 = plt.subplots(figsize=(17, 7))
+            fig, ax1 = plt.subplots(figsize=(17, 5))
             axes_y = [ax1]
             for _ in range(5):
                 axes_y.append(ax1.twinx())
@@ -322,9 +322,9 @@ def save_training_metrics_plot(
                 ax.spines["left"].set_visible(True)
                 ax.yaxis.set_label_position("left")
                 ax.yaxis.tick_left()
-                ax.spines["left"].set_position(("outward", 55 * i))
+                ax.spines["left"].set_position(("outward", 65 * i))
                 ax.patch.set_visible(False)
-            fig.subplots_adjust(left=0.48, right=0.77)
+            fig.subplots_adjust(left=0.55, right=0.82)
             curves = [
                 (
                     losses_df["epoch"],
@@ -352,13 +352,6 @@ def save_training_metrics_plot(
                     clustering_subset["std_dev"],
                     "Desv. clustering",
                     "tab:red",
-                    "-",
-                ),
-                (
-                    degree_subset["epoch"],
-                    degree_subset["mean"],
-                    "Media grado",
-                    "tab:purple",
                     "-",
                 ),
                 (
