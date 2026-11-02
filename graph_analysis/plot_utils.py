@@ -394,7 +394,7 @@ def save_training_metrics_plot(
                     f"{partition}, tipo {neuron_type}."
                 )
                 continue
-            fig, ax1 = plt.subplots(figsize=(17, 5))
+            fig, ax1 = plt.subplots(figsize=(17, 3))
             axes_y = [ax1]
             for _ in range(4):
                 axes_y.append(ax1.twinx())
