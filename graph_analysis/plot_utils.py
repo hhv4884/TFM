@@ -627,31 +627,26 @@ def save_weighted_graph_training_metrics(
     required_losses = {"epoch", "train_loss", "test_loss"}
     missing = required_losses - set(losses_df.columns)
     if missing:
-        raise ValueError(
-            f"Faltan columnas en epochs_info.csv: {missing}"
-        )
+        raise ValueError(f"Faltan columnas en epochs_info.csv: {missing}")
     for col in ("epoch", "train_loss", "test_loss"):
         losses_df[col] = pd.to_numeric(losses_df[col], errors="coerce")
-    losses_df = losses_df.dropna(
-        subset=["epoch", "train_loss", "test_loss"]
-    )
+    losses_df = losses_df.dropna(subset=["epoch", "train_loss", "test_loss"])
     losses_df["epoch"] = losses_df["epoch"].astype(int)
-    losses_df = (
-        losses_df.drop_duplicates(subset=["epoch"], keep="last")
-        .sort_values("epoch")
+    losses_df = losses_df.drop_duplicates(subset=["epoch"], keep="last").sort_values(
+        "epoch"
     )
     strength_df = (
-        pd.read_csv(strength_metrics_path)
-        if strength_metrics_path is not None
-        and os.path.isfile(strength_metrics_path)
-        else pd.DataFrame()
-    )
+    pd.read_csv(strength_metrics_path)
+    if strength_metrics_path is not None and os.path.isfile(strength_metrics_path)
+    else pd.DataFrame())
     clustering_df = (
-        pd.read_csv(clustering_metrics_path)
-        if clustering_metrics_path is not None
-        and os.path.isfile(clustering_metrics_path)
-        else pd.DataFrame()
-    )
+    pd.read_csv(clustering_metrics_path)
+    if clustering_metrics_path is not None
+    and os.path.isfile(clustering_metrics_path)
+    else pd.DataFrame())
+    for df in (strength_df, clustering_df):
+        if not df.empty:
+            df.columns = (df.columns.astype(str).str.strip().str.replace("\ufeff", "", regex=False))
     for name, df in (
         ("strength_metrics", strength_df),
         ("weighted_clustering_metrics", clustering_df),
@@ -673,56 +668,62 @@ def save_weighted_graph_training_metrics(
         hidden_layers.update(clustering_df["hidden_layer"].unique())
     for hidden_layer in sorted(hidden_layers):
         strength_subset = (
-            strength_df[
-                strength_df["hidden_layer"] == hidden_layer
-            ].sort_values("epoch")
+            strength_df[strength_df["hidden_layer"] == hidden_layer].sort_values(
+                "epoch"
+            )
             if not strength_df.empty
             else pd.DataFrame()
         )
         clustering_subset = (
-            clustering_df[
-                clustering_df["hidden_layer"] == hidden_layer
-            ].sort_values("epoch")
+            clustering_df[clustering_df["hidden_layer"] == hidden_layer].sort_values(
+                "epoch"
+            )
             if not clustering_df.empty
             else pd.DataFrame()
         )
         curves = []
         if not strength_subset.empty:
-            curves.extend([
-                (
-                    strength_subset["epoch"],
-                    strength_subset["mean"],
-                    "Mean strength",
-                    "tab:blue",
-                ),
-                (
-                    strength_subset["epoch"],
-                    strength_subset["std_dev"],
-                    "Strength std. dev.",
-                    "tab:cyan",
-                ),
-            ])
+            curves.extend(
+                [
+                    (
+                        strength_subset["epoch"],
+                        strength_subset["mean"],
+                        "Mean strength",
+                        "tab:blue",
+                    ),
+                    (
+                        strength_subset["epoch"],
+                        strength_subset["std_dev"],
+                        "Strength std. dev.",
+                        "tab:cyan",
+                    ),
+                ]
+            )
         if not clustering_subset.empty:
-            curves.extend([
-                (
-                    clustering_subset["epoch"],
-                    clustering_subset["mean"],
-                    "Mean weighted clustering",
-                    "tab:green",
-                ),
-                (
-                    clustering_subset["epoch"],
-                    clustering_subset["std_dev"],
-                    "Clustering std. dev.",
-                    "tab:red",
-                ),
-            ])
-        curves.append((
-            losses_df["epoch"],
-            losses_df["test_loss"],
-            "Test loss",
-            "tab:orange",
-        ))
+            curves.extend(
+                [
+                    (
+                        clustering_subset["epoch"],
+                        clustering_subset["mean"],
+                        "Mean weighted clustering",
+                        "tab:green",
+                    ),
+                    (
+                        clustering_subset["epoch"],
+                        clustering_subset["std_dev"],
+                        "Clustering std. dev.",
+                        "tab:red",
+                    ),
+                ]
+            )
+        curves.append(
+            (
+                losses_df["epoch"],
+                losses_df["test_loss"],
+                "Test loss",
+                "tab:orange",
+            )
+        )
         fig = plt.figure(figsize=(20, 5))
         gs = fig.add_gridspec(
             1,
@@ -738,7 +739,7 @@ def save_weighted_graph_training_metrics(
         lines = []
         for i, (axis, curve) in enumerate(zip(axes_y, curves)):
             x, y, label, color = curve
-            line, = axis.plot(
+            (line,) = axis.plot(
                 x,
                 y,
                 color=color,
@@ -766,11 +767,9 @@ def save_weighted_graph_training_metrics(
             label=f"Best epoch ({best_epoch})",
         )
         ax1.set_xlabel("Epoch")
-        ax1.set_title(
-            f"Weighted graph metrics — hidden layer {hidden_layer}"
-        )
+        ax1.set_title(f"Weighted graph metrics — hidden layer {hidden_layer}")
         ax1.grid(axis="x", alpha=0.25)
-        train_loss_line, = ax_loss.plot(
+        (train_loss_line,) = ax_loss.plot(
             losses_df["train_loss"],
             losses_df["epoch"],
             color="tab:blue",
