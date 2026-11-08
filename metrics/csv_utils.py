@@ -1,6 +1,7 @@
 import os
 import csv
 import pandas as pd
+import numpy as np
 
 
 def update_csv_epoch_info(
@@ -13,6 +14,8 @@ def update_csv_epoch_info(
     csv_path,
     thresholds,
     calculate_strength=False,
+    calculate_weighted_clustering=False,
+    backbone_alpha=0.01,
 ):
     from .analysis import analyze_all_partitions
 
@@ -36,7 +39,15 @@ def update_csv_epoch_info(
             new_row = [epoch, train_loss, train_accuracy, test_loss, test_accuracy]
             writer = csv.writer(f)
             writer.writerow(new_row)
-    analyze_all_partitions(model, epoch, thresholds, csv_path, calculate_strength)
+    analyze_all_partitions(
+        model,
+        epoch,
+        thresholds,
+        csv_path,
+        calculate_strength,
+        calculate_weighted_clustering,
+        backbone_alpha
+    )
 
 
 def update_csv_clustering_info(
@@ -172,7 +183,8 @@ def update_csv_strength_info(
     epoch, hidden_layer, input_strength, output_strength, total_strength, strength_path
 ):
     os.makedirs(strength_path, exist_ok=True)
-    csv_file = os.path.join(strength_path, "strength_index.csv")
+    values_csv = os.path.join(strength_path, "strength_index.csv")
+    metrics_csv = os.path.join(strength_path, "strength_metrics.csv")
     data = []
     for i in range(len(total_strength)):
         data.append(
@@ -186,7 +198,78 @@ def update_csv_strength_info(
             }
         )
     df = pd.DataFrame(data)
-    if os.path.isfile(csv_file):
-        df.to_csv(csv_file, mode="a", header=False, index=False)
+    df.to_csv(
+        values_csv,
+        mode="a" if os.path.isfile(values_csv) else "w",
+        header=not os.path.isfile(values_csv),
+        index=False,
+    )
+    values = total_strength.detach().cpu().numpy()
+    values = values[np.isfinite(values)]
+    metrics = pd.DataFrame(
+        [
+            {
+                "epoch": epoch,
+                "hidden_layer": hidden_layer,
+                "mean": float(np.mean(values)) if len(values) else np.nan,
+                "median": float(np.median(values)) if len(values) else np.nan,
+                "std_dev": float(np.std(values)) if len(values) else np.nan,
+                "n_valid": len(values),
+            }
+        ]
+    )
+    metrics.to_csv(
+        metrics_csv,
+        mode="a" if os.path.isfile(metrics_csv) else "w",
+        header=not os.path.isfile(metrics_csv),
+        index=False,
+    )
+
+
+def update_csv_weighted_clustering_info(
+    epoch,
+    hidden_layer,
+    coefficients,
+    mean,
+    median,
+    std_dev,
+    clustering_path,
+):
+    os.makedirs(clustering_path, exist_ok=True)
+    values_csv = os.path.join(clustering_path, "weighted_clustering_index.csv")
+    metrics_csv = os.path.join(clustering_path, "weighted_clustering_metrics.csv")
+    rows = []
+    for neuron_index, coefficient in enumerate(coefficients):
+        rows.append(
+            {
+                "epoch": epoch,
+                "hidden_layer": hidden_layer,
+                "neuron_index": neuron_index,
+                "clustering_coefficient": float(coefficient),
+            }
+        )
+    df = pd.DataFrame(rows)
+    if os.path.isfile(values_csv):
+        df.to_csv(values_csv, mode="a", header=False, index=False)
     else:
-        df.to_csv(csv_file, index=False)
+        df.to_csv(values_csv, index=False)
+    metrics = pd.DataFrame(
+        [
+            {
+                "epoch": epoch,
+                "hidden_layer": hidden_layer,
+                "mean": mean,
+                "median": median,
+                "std_dev": std_dev,
+            }
+        ]
+    )
+    if os.path.isfile(metrics_csv):
+        metrics.to_csv(
+            metrics_csv,
+            mode="a",
+            header=False,
+            index=False,
+        )
+    else:
+        metrics.to_csv(metrics_csv, index=False)

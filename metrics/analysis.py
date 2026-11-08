@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -6,6 +7,7 @@ from .csv_utils import (
     update_csv_clustering_info,
     update_csv_degree_info,
     update_csv_strength_info,
+    update_csv_weighted_clustering_info,
 )
 
 
@@ -106,6 +108,77 @@ def strength_index(
     )
 
 
+def hidden_weighted_bipartite_clustering(fc1, fc2):
+    W1 = fc1.weight.detach()
+    W2 = fc2.weight.detach()
+    K = torch.cat([W1.T, W2], dim=0).double()
+    wmax = K.abs().max()
+    Kb = K.T
+    Ka = Kb.abs()
+    Wsq = Ka**2
+    P = Kb @ Kb.T
+    Q = Wsq @ Wsq.T
+    s = Ka.sum(dim=1)
+    pair_w = s**2 - Wsq.sum(dim=1)
+    num = (P**2).sum(dim=1) - torch.diagonal(P) ** 2 - Q.sum(dim=1) + torch.diagonal(Q)
+    n_i = Kb.shape[0] - 1
+    c = num / (n_i * wmax**2 * pair_w)
+    c[~torch.isfinite(c)] = float("nan")
+    return c
+
+
+def weighted_clustering_index(fc1, fc2, epoch, clustering_path, hidden_layer):
+    coefficients = hidden_weighted_bipartite_clustering(fc1, fc2)
+    coefficients = coefficients.detach().cpu().numpy()
+    mean = float(np.nanmean(coefficients))
+    median = float(np.nanmedian(coefficients))
+    std_dev = float(np.nanstd(coefficients))
+    update_csv_weighted_clustering_info(
+        epoch, hidden_layer, coefficients, mean, median, std_dev, clustering_path
+    )
+
+
+def backbone_index(
+    weight,
+    epoch,
+    alpha,
+    backbone_path,
+    partition_number,
+):
+    if not 0 <= alpha <= 1:
+        raise ValueError("alpha debe estar entre 0 y 1.")
+    abs_weight = torch.abs(weight.detach())
+    n_edges = abs_weight.numel()
+    n_selected = math.ceil(alpha * n_edges)
+    backbone_mask = torch.zeros_like(
+        abs_weight,
+        dtype=torch.bool,
+    )
+    if n_selected > 0:
+        selected_indices = torch.topk(
+            abs_weight.reshape(-1),
+            k=n_selected,
+            largest=True,
+            sorted=False,
+        ).indices
+        backbone_mask.view(-1)[selected_indices] = True
+    backbone_weight = backbone_mask.float()
+    degree_index(
+        backbone_weight,
+        epoch,
+        0.5,
+        backbone_path,
+        partition_number,
+    )
+    clustering_index(
+        backbone_weight,
+        epoch,
+        0.5,
+        backbone_path,
+        partition_number,
+    )
+
+
 def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
     weight = weight.detach().cpu()
     for threshold_percentile in thresholds:
@@ -126,18 +199,44 @@ def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
 
 
 def analyze_all_partitions(
-    model, epoch, thresholds, csv_path, calculate_strength=False
+    model,
+    epoch,
+    thresholds,
+    csv_path,
+    calculate_strength=False,
+    calculate_weighted_clustering=False,
+    backbone_alpha=0.01,
 ):
     partitions = [layer for layer in model.net if isinstance(layer, nn.Linear)]
     for partition_number, layer in enumerate(partitions, start=1):
         analyze_partition(layer.weight, epoch, thresholds, csv_path, partition_number)
+        if backbone_alpha is not None:
+            backbone_path = os.path.join(csv_path,f"backbone_alpha_{backbone_alpha:g}")
+            backbone_index(
+                layer.weight,
+                epoch,
+                backbone_alpha,
+                backbone_path,
+                partition_number,
+            )
     if calculate_strength:
-        strength_path = os.path.join(csv_path, "strength")
+        strength_path = os.path.join(csv_path, "weighted_graph", "strength")
         for i in range(len(partitions) - 1):
             strength_index(
                 partitions[i].weight,
                 partitions[i + 1].weight,
                 epoch,
                 strength_path,
+                hidden_layer=i + 1,
+            )
+
+    if calculate_weighted_clustering:
+        clustering_path = os.path.join(csv_path, "weighted_graph", "clustering")
+        for i in range(len(partitions) - 1):
+            weighted_clustering_index(
+                partitions[i],
+                partitions[i + 1],
+                epoch,
+                clustering_path,
                 hidden_layer=i + 1,
             )

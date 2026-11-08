@@ -18,6 +18,7 @@ def experiment():
             "thresholds": [None],
             "n_models": 5,
             "calculate_strength": True,
+            "calculate_weighted_clustering": True,
         },
         {
             "architectures": [(2500, [1000], n_classes)],
@@ -25,6 +26,7 @@ def experiment():
             "thresholds": [None],
             "n_models": 1,
             "calculate_strength": True,
+            "calculate_weighted_clustering": True,
         },
         {
             "architectures": [(2500, [1000], n_classes)],
@@ -32,6 +34,7 @@ def experiment():
             "thresholds": [None, 50, 75, 90, 95, 99],
             "n_models": 1,
             "calculate_strength": False,
+            "calculate_weighted_clustering": False,
         },
         {
             "architectures": [
@@ -43,6 +46,7 @@ def experiment():
             "thresholds": [None],
             "n_models": 1,
             "calculate_strength": True,
+            "calculate_weighted_clustering": True,
         },
     ]
     for experiment_number, experiment_config in enumerate(experiments, start=1):
@@ -79,6 +83,9 @@ def experiment():
                         experiment_name=f"experiment_{experiment_number}",
                         model_id=model_id,
                         calculate_strength=experiment_config["calculate_strength"],
+                        calculate_weighted_clustering=experiment_config[
+                            "calculate_weighted_clustering"
+                        ],
                     )
 
 

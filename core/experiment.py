@@ -28,6 +28,7 @@ def run_experiment(
     experiment_name,
     model_id,
     calculate_strength=False,
+    calculate_weighted_clustering=False,
 ):
     dimensions = create_dimensions_string(input_neurons, hidden_neurons, output_neurons)
     if task == "classification":
@@ -76,7 +77,8 @@ def run_experiment(
         device,
         epochs,
         thresholds,
-        calculate_strength
+        calculate_strength,
+        calculate_weighted_clustering
     )
     create_separated_panels(
         model_path=model_path,
