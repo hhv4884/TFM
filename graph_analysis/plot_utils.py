@@ -636,17 +636,28 @@ def save_weighted_graph_training_metrics(
         "epoch"
     )
     strength_df = (
-    pd.read_csv(strength_metrics_path)
-    if strength_metrics_path is not None and os.path.isfile(strength_metrics_path)
-    else pd.DataFrame())
+        pd.read_csv(strength_metrics_path)
+        if strength_metrics_path is not None and os.path.isfile(strength_metrics_path)
+        else pd.DataFrame()
+    )
     clustering_df = (
-    pd.read_csv(clustering_metrics_path)
-    if clustering_metrics_path is not None
-    and os.path.isfile(clustering_metrics_path)
-    else pd.DataFrame())
+        pd.read_csv(clustering_metrics_path)
+        if clustering_metrics_path is not None
+        and os.path.isfile(clustering_metrics_path)
+        else pd.DataFrame()
+    )
+    print("RUTA REAL:", os.path.abspath(clustering_metrics_path))
+    print("ARCHIVO EXISTE:", os.path.isfile(clustering_metrics_path))
+    print("COLUMNAS LEÍDAS:", clustering_df.columns.tolist())
+    print("PRIMERAS FILAS:")
+    print(clustering_df.head().to_string())
     for df in (strength_df, clustering_df):
         if not df.empty:
-            df.columns = (df.columns.astype(str).str.strip().str.replace("\ufeff", "", regex=False))
+            df.columns = (
+                df.columns.astype(str)
+                .str.strip()
+                .str.replace("\ufeff", "", regex=False)
+            )
     for name, df in (
         ("strength_metrics", strength_df),
         ("weighted_clustering_metrics", clustering_df),

@@ -24,9 +24,7 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
     strength_metrics_csv = os.path.join(
         weighted_graph_csv, "strength", "strength_metrics.csv"
     )
-    clustering_metrics_csv = os.path.join(
-        weighted_graph_csv, "clustering", "weighted_clustering_metrics.csv"
-    )
+    clustering_metrics_csv = os.path.join(weighted_graph_csv, "clustering","weighted_clustering_metrics.csv")
     strength_df = (
         pd.read_csv(strength_csv) if os.path.isfile(strength_csv) else pd.DataFrame()
     )
@@ -41,21 +39,24 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
         threshold_path = os.path.join(graph_path, threshold_folder)
         if not os.path.isdir(threshold_path):
             continue
-        if not threshold_folder.startswith("threshold_"):
+        if not (
+            threshold_folder.startswith("threshold_")
+            or threshold_folder.startswith("backbone_alpha_")
+        ):
             continue
         degree_csv = os.path.join(threshold_path, "degree_index.csv")
         clustering_csv = os.path.join(threshold_path, "clustering_index.csv")
         degree_metrics_csv = os.path.join(threshold_path, "degree_index_metrics.csv")
-        clustering_metrics_csv = os.path.join(
+        threshold_clustering_metrics_csv = os.path.join(
             threshold_path, "clustering_index_metrics.csv"
         )
         if os.path.isfile(degree_metrics_csv) and os.path.isfile(
-            clustering_metrics_csv
+            threshold_clustering_metrics_csv
         ):
             save_training_metrics_plot(
                 epoch_info_path=epochs_info_path,
                 degree_metrics_path=degree_metrics_csv,
-                clustering_metrics_path=clustering_metrics_csv,
+                clustering_metrics_path=threshold_clustering_metrics_csv,
                 output_path=os.path.join(
                     plots_root,
                     threshold_folder,
@@ -160,6 +161,9 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
             "training_metrics",
         )
 
+        print("strength_metrics_csv:", strength_metrics_csv)
+        print("clustering_metrics_csv:", clustering_metrics_csv)
+        print("weighted_graph_csv:", weighted_graph_csv)
         save_weighted_graph_training_metrics(
             epoch_info_path=epochs_info_path,
             strength_metrics_path=(
