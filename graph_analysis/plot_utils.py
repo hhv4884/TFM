@@ -419,7 +419,7 @@ def add_graph_info(ax, rows, degree_df, epoch, losses):
         transform=ax.transAxes,
         ha="right",
         va="top",
-        fontsize=8,
+        fontsize=11,
         bbox=dict(
             boxstyle="round,pad=0.4",
             facecolor="white",
@@ -795,7 +795,7 @@ def save_weighted_graph_training_metrics(
             loc="center left",
             bbox_to_anchor=(0.82, 0.5),
             fontsize=9,
-            frameon=False
+            frameon=False,
         )
         fig.subplots_adjust(
             left=0.30,
