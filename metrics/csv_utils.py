@@ -46,7 +46,7 @@ def update_csv_epoch_info(
         csv_path,
         calculate_strength,
         calculate_weighted_clustering,
-        backbone_alpha
+        backbone_alpha,
     )
 
 
@@ -180,7 +180,14 @@ def update_csv_degree_info(
 
 
 def update_csv_strength_info(
-    epoch, hidden_layer, input_strength, output_strength, total_strength, strength_path
+    epoch,
+    hidden_layer,
+    input_strength,
+    output_strength,
+    total_strength,
+    strength_path,
+    n_edges,
+    n_nodes,
 ):
     os.makedirs(strength_path, exist_ok=True)
     values_csv = os.path.join(strength_path, "strength_index.csv")
@@ -195,6 +202,8 @@ def update_csv_strength_info(
                 "input_strength": input_strength[i].item(),
                 "output_strength": output_strength[i].item(),
                 "strength": total_strength[i].item(),
+                "n_edges": n_edges,
+                "n_nodes": n_nodes,
             }
         )
     df = pd.DataFrame(data)
@@ -215,6 +224,8 @@ def update_csv_strength_info(
                 "median": float(np.median(values)) if len(values) else np.nan,
                 "std_dev": float(np.std(values)) if len(values) else np.nan,
                 "n_valid": len(values),
+                "n_edges": n_edges,
+                "n_nodes": n_nodes,
             }
         ]
     )
@@ -227,13 +238,7 @@ def update_csv_strength_info(
 
 
 def update_csv_weighted_clustering_info(
-    epoch,
-    hidden_layer,
-    coefficients,
-    mean,
-    median,
-    std_dev,
-    clustering_path,
+    epoch, hidden_layer, coefficients, mean, median, std_dev, clustering_path, n_edges, n_nodes
 ):
     os.makedirs(clustering_path, exist_ok=True)
     values_csv = os.path.join(clustering_path, "weighted_clustering_index.csv")
@@ -246,6 +251,8 @@ def update_csv_weighted_clustering_info(
                 "hidden_layer": hidden_layer,
                 "neuron_index": neuron_index,
                 "clustering_coefficient": float(coefficient),
+                "n_edges": n_edges,
+                "n_nodes": n_nodes
             }
         )
     df = pd.DataFrame(rows)
@@ -261,6 +268,8 @@ def update_csv_weighted_clustering_info(
                 "mean": mean,
                 "median": median,
                 "std_dev": std_dev,
+                "n_edges": n_edges,
+                "n_nodes": n_nodes
             }
         ]
     )

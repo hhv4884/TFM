@@ -41,45 +41,50 @@ def plot_clustering_counts(ax, rows, neuron_type, degree_df, epoch, losses):
     ax.grid(axis="y", alpha=0.3)
 
 
-def plot_strength_counts(ax, rows):
+def plot_strength_counts(ax, rows, epoch, losses):
+    stats_text = ""
     if not rows.empty:
         values = rows["strength"].to_numpy(dtype=float)
-        min_value = values.min()
-        max_value = values.max()
-        if min_value == max_value:
-            margin = max(abs(min_value) * 0.05, 0.005)
-            bins = np.linspace(min_value - margin, max_value + margin, 36)
-        else:
-            bins = np.linspace(min_value, max_value, 36)
-        ax.hist(values, bins=bins, edgecolor="black")
-        stats_text = (
-            f"Mean: {np.mean(values):.4f}\n"
-            f"Median: {np.median(values):.4f}\n"
-            f"Std. dev.: {np.std(values):.4f}"
-        )
-        ax.text(
-            0.98,
-            0.97,
-            stats_text,
-            transform=ax.transAxes,
-            ha="right",
-            va="top",
-            fontsize=10,
-            bbox=dict(
-                boxstyle="round,pad=0.4",
-                facecolor="white",
-                edgecolor="gray",
-                alpha=0.9,
-            ),
-        )
+        values = values[np.isfinite(values)]
+        if len(values) > 0:
+            min_value = values.min()
+            max_value = values.max()
+            if min_value == max_value:
+                margin = max(abs(min_value) * 0.05, 0.005)
+                bins = np.linspace(min_value - margin, max_value + margin, 36)
+            else:
+                bins = np.linspace(min_value, max_value, 36)
+            ax.hist(values, bins=bins, edgecolor="black")
+            stats_text = (
+                f"Mean: {np.mean(values):.4f}\n"
+                f"Median: {np.median(values):.4f}\n"
+                f"Std. dev.: {np.std(values):.4f}"
+            )
+    info_text = get_weighted_graph_info(rows, epoch, losses)
+    ax.text(
+        0.98,
+        0.97,
+        stats_text + info_text,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=10,
+        bbox=dict(
+            boxstyle="round,pad=0.4",
+            facecolor="white",
+            edgecolor="gray",
+            alpha=0.9,
+        ),
+    )
     ax.set_xlabel("Strength")
     ax.set_ylabel("Number of Neurons")
     ax.grid(axis="y", alpha=0.3)
 
 
-def plot_weighted_clustering_counts(ax, rows):
+def plot_weighted_clustering_counts(ax, rows, epoch, losses):
     values = rows["clustering_coefficient"].to_numpy(dtype=float)
     values = values[np.isfinite(values)]
+    stats_text = ""
     if len(values) > 0:
         min_value = values.min()
         max_value = values.max()
@@ -97,12 +102,13 @@ def plot_weighted_clustering_counts(ax, rows):
             f"Mean: {np.mean(values):.4f}\n"
             f"Median: {np.median(values):.4f}\n"
             f"Std. dev.: {np.std(values):.4f}\n"
-            f"Valid neurons: {len(values)}"
+            f"Nodes: {len(values)}"
         )
+        info_text = get_weighted_graph_info(rows, epoch, losses)
         ax.text(
             0.98,
             0.97,
-            stats_text,
+            stats_text + info_text,
             transform=ax.transAxes,
             ha="right",
             va="top",
@@ -273,7 +279,7 @@ def save_partition_pdf_plots(
             axes = axes[0]
             for ax, epoch in zip(axes, epochs):
                 rows = strength_df[strength_df["epoch"] == epoch]
-                plot_strength_counts(ax, rows)
+                plot_strength_counts(ax, rows, epoch, losses)
                 ax.set_title(f"Epoch {epoch}")
             fig.tight_layout()
             fig.savefig(
@@ -300,7 +306,7 @@ def save_partition_pdf_plots(
             axes = axes[0]
             for ax, epoch in zip(axes, epochs):
                 rows = weighted_clustering_df[weighted_clustering_df["epoch"] == epoch]
-                plot_weighted_clustering_counts(ax, rows)
+                plot_weighted_clustering_counts(ax, rows, epoch, losses)
                 ax.set_title(f"Epoch {epoch}")
             fig.tight_layout()
             fig.savefig(
@@ -426,6 +432,30 @@ def add_graph_info(ax, rows, degree_df, epoch, losses):
             edgecolor="gray",
             alpha=0.9,
         ),
+    )
+
+
+def get_weighted_graph_info(rows, epoch, losses):
+    n_edges = (
+        int(rows["n_edges"].iloc[0])
+        if not rows.empty and "n_edges" in rows.columns
+        else "N/A"
+    )
+    n_nodes = (
+        int(rows["n_nodes"].iloc[0])
+        if not rows.empty and "n_nodes" in rows.columns
+        else "N/A"
+    )
+    epoch_losses = losses.get(epoch, {})
+    train_loss = epoch_losses.get("train_loss")
+    test_loss = epoch_losses.get("test_loss")
+    train_text = f"{train_loss:.4f}" if train_loss is not None else "N/A"
+    test_text = f"{test_loss:.4f}" if test_loss is not None else "N/A"
+    return (
+        f"Nodes: {n_nodes}\n"
+        f"Edges: {n_edges}\n"
+        f"Train Loss: {train_text}\n"
+        f"Test Loss: {test_text}"
     )
 
 

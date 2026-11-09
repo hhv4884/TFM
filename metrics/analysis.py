@@ -98,6 +98,13 @@ def strength_index(
     input_strength, _ = strength(incoming_weight)
     _, output_strength = strength(outgoing_weight)
     total_strength = input_strength + output_strength
+    n_nodes = (
+        incoming_weight.shape[1] + incoming_weight.shape[0] + outgoing_weight.shape[0]
+    )
+    n_edges = (
+        torch.count_nonzero(incoming_weight).item()
+        + torch.count_nonzero(outgoing_weight).item()
+    )
     update_csv_strength_info(
         epoch,
         hidden_layer,
@@ -105,6 +112,8 @@ def strength_index(
         output_strength,
         total_strength,
         strength_path,
+        n_edges,
+        n_nodes,
     )
 
 
@@ -133,8 +142,20 @@ def weighted_clustering_index(fc1, fc2, epoch, clustering_path, hidden_layer):
     mean = float(np.nanmean(coefficients))
     median = float(np.nanmedian(coefficients))
     std_dev = float(np.nanstd(coefficients))
+    n_nodes = (fc1.weight.shape[1] + fc1.weight.shape[0] + fc2.weight.shape[0])
+    n_edges = (
+        torch.count_nonzero(fc1.weight).item() + torch.count_nonzero(fc2.weight).item()
+    )
     update_csv_weighted_clustering_info(
-        epoch, hidden_layer, coefficients, mean, median, std_dev, clustering_path
+        epoch,
+        hidden_layer,
+        coefficients,
+        mean,
+        median,
+        std_dev,
+        clustering_path,
+        n_edges,
+        n_nodes,
     )
 
 
@@ -211,7 +232,7 @@ def analyze_all_partitions(
     for partition_number, layer in enumerate(partitions, start=1):
         analyze_partition(layer.weight, epoch, thresholds, csv_path, partition_number)
         if backbone_alpha is not None:
-            backbone_path = os.path.join(csv_path,f"backbone_alpha_{backbone_alpha:g}")
+            backbone_path = os.path.join(csv_path, f"backbone_alpha_{backbone_alpha:g}")
             backbone_index(
                 layer.weight,
                 epoch,
