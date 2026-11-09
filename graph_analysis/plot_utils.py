@@ -64,7 +64,7 @@ def plot_strength_counts(ax, rows):
             transform=ax.transAxes,
             ha="right",
             va="top",
-            fontsize=8,
+            fontsize=10,
             bbox=dict(
                 boxstyle="round,pad=0.4",
                 facecolor="white",
@@ -106,7 +106,7 @@ def plot_weighted_clustering_counts(ax, rows):
             transform=ax.transAxes,
             ha="right",
             va="top",
-            fontsize=8,
+            fontsize=10,
             bbox=dict(
                 boxstyle="round,pad=0.4",
                 facecolor="white",
@@ -490,12 +490,12 @@ def save_training_metrics_plot(
                     f"{partition}, tipo {neuron_type}."
                 )
                 continue
-            fig = plt.figure(figsize=(20, 3))
+            fig = plt.figure(figsize=(16, 4))
             gs = fig.add_gridspec(
                 1,
                 2,
-                width_ratios=[4.5, 1.3],
-                wspace=0.8,
+                width_ratios=[3.5, 1.2],
+                wspace=0.25,
             )
             ax1 = fig.add_subplot(gs[0, 0])
             ax_loss = fig.add_subplot(gs[0, 1])
@@ -510,7 +510,7 @@ def save_training_metrics_plot(
                 ax.spines["left"].set_visible(True)
                 ax.yaxis.set_label_position("left")
                 ax.yaxis.tick_left()
-                ax.spines["left"].set_position(("outward", 65 * i))
+                ax.spines["left"].set_position(("outward", 55 * i))
                 ax.patch.set_visible(False)
             curves = [
                 (
@@ -590,21 +590,22 @@ def save_training_metrics_plot(
                 [0],
                 color="black",
                 linestyle=":",
-                label=f"Mejor época ({best_epoch})",
+                label=f"Best Epoch ({best_epoch})",
             )
             lines.append(best_epoch_line)
-            fig.subplots_adjust(
-                left=0.42,
-                right=0.78,
-                bottom=0.20,
-                top=0.85,
-                wspace=0.8,
-            )
             fig.legend(
                 handles=lines,
-                loc="upper left",
-                bbox_to_anchor=(0.99, 0.95),
+                loc="center left",
+                bbox_to_anchor=(0.85, 0.5),
                 fontsize=9,
+                frameon=False,
+            )
+            fig.subplots_adjust(
+                left=0.30,
+                right=0.80,
+                bottom=0.18,
+                top=0.85,
+                wspace=0.25,
             )
             filename = f"training_metrics_partition_{partition}_" f"{neuron_type}.pdf"
             fig.savefig(
@@ -646,11 +647,6 @@ def save_weighted_graph_training_metrics(
         and os.path.isfile(clustering_metrics_path)
         else pd.DataFrame()
     )
-    print("RUTA REAL:", os.path.abspath(clustering_metrics_path))
-    print("ARCHIVO EXISTE:", os.path.isfile(clustering_metrics_path))
-    print("COLUMNAS LEÍDAS:", clustering_df.columns.tolist())
-    print("PRIMERAS FILAS:")
-    print(clustering_df.head().to_string())
     for df in (strength_df, clustering_df):
         if not df.empty:
             df.columns = (
@@ -735,12 +731,12 @@ def save_weighted_graph_training_metrics(
                 "tab:orange",
             )
         )
-        fig = plt.figure(figsize=(20, 5))
+        fig = plt.figure(figsize=(16, 5))
         gs = fig.add_gridspec(
             1,
             2,
-            width_ratios=[4.5, 1.3],
-            wspace=0.8,
+            width_ratios=[3.5, 1.2],
+            wspace=0.25,
         )
         ax1 = fig.add_subplot(gs[0, 0])
         ax_loss = fig.add_subplot(gs[0, 1])
@@ -764,7 +760,7 @@ def save_weighted_graph_training_metrics(
             axis.yaxis.tick_left()
             axis.spines["right"].set_visible(False)
             axis.spines["left"].set_visible(True)
-            axis.spines["left"].set_position(("outward", 55 * i))
+            axis.spines["left"].set_position(("outward", 50 * i))
             axis.spines["left"].set_color(color)
             if i > 0:
                 axis.patch.set_visible(False)
@@ -796,18 +792,17 @@ def save_weighted_graph_training_metrics(
         lines.append(train_loss_line)
         fig.legend(
             handles=lines,
-            loc="upper center",
-            bbox_to_anchor=(0.5, 1.02),
-            ncol=3,
+            loc="center left",
+            bbox_to_anchor=(0.82, 0.5),
             fontsize=9,
+            frameon=False
         )
-        left_margin = 0.16 + 0.035 * len(curves)
         fig.subplots_adjust(
-            left=left_margin,
-            right=0.97,
+            left=0.30,
+            right=0.80,
             bottom=0.18,
-            top=0.82,
-            wspace=0.8,
+            top=0.85,
+            wspace=0.25,
         )
         fig.savefig(
             os.path.join(
