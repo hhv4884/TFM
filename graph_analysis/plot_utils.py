@@ -125,6 +125,48 @@ def plot_weighted_clustering_counts(ax, rows, epoch, losses):
     ax.grid(axis="y", alpha=0.3)
 
 
+def plot_disparity_degree_distribution(ax, rows, neuron_type):
+    if not rows.empty:
+        values = rows["degree"].to_numpy(dtype=float)
+        min_value = values.min()
+        max_value = values.max()
+        if min_value == max_value:
+            margin = max(abs(min_value) * 0.05, 0.005)
+            bins = np.linspace(
+                min_value - margin,
+                max_value + margin,
+                36,
+            )
+        else:
+            bins = np.linspace(min_value, max_value, 36)
+        ax.hist(values, bins=bins, edgecolor="black")
+        stats_text = (
+            f"Mean: {np.mean(values):.2f}\n"
+            f"Median: {np.median(values):.2f}\n"
+            f"Std. dev.: {np.std(values):.2f}\n"
+            f"Nodes: {len(values)}"
+        )
+        ax.text(
+            0.98,
+            0.97,
+            stats_text,
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=10,
+            bbox=dict(
+                boxstyle="round,pad=0.4",
+                facecolor="white",
+                edgecolor="gray",
+                alpha=0.9,
+            ),
+        )
+    ax.set_xlabel("Degree")
+    ax.set_ylabel("Number of neurons")
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_title(f"{neuron_type.capitalize()} degree distribution")
+
+
 def _normalize_degree_columns(degree_df):
     if degree_df.empty:
         return pd.DataFrame(columns=["epoch", "degree_type", "degree", "count"])
@@ -520,6 +562,16 @@ def save_training_metrics_plot(
                     f"{partition}, tipo {neuron_type}."
                 )
                 continue
+            degree_subset = degree_subset.merge(
+                losses_df[["epoch", "train_loss"]],
+                on="epoch",
+                how="inner",
+            )
+            clustering_subset = clustering_subset.merge(
+                losses_df[["epoch", "train_loss"]],
+                on="epoch",
+                how="inner",
+            )
             fig = plt.figure(figsize=(16, 4))
             gs = fig.add_gridspec(
                 1,
@@ -530,7 +582,7 @@ def save_training_metrics_plot(
             ax1 = fig.add_subplot(gs[0, 0])
             ax_loss = fig.add_subplot(gs[0, 1])
             axes_y = [ax1]
-            for _ in range(3):
+            for _ in range(4):
                 axes_y.append(ax1.twinx())
             ax1.yaxis.set_label_position("left")
             ax1.yaxis.tick_left()
@@ -571,8 +623,14 @@ def save_training_metrics_plot(
                     "tab:brown",
                     "-",
                 ),
+                (
+                    losses_df["epoch"],
+                    losses_df["train_loss"],
+                    "Train loss",
+                    "tab:blue",
+                    "-",
+                ),
             ]
-            lines = []
             for ax, curve in zip(axes_y, curves):
                 x, y, label, color, linestyle = curve
                 (line,) = ax.plot(
@@ -586,50 +644,97 @@ def save_training_metrics_plot(
                 ax.set_ylabel(label, color=color)
                 ax.tick_params(axis="y", colors=color)
                 ax.spines["left"].set_color(color)
-                lines.append(line)
             ax1.axvline(
                 x=best_epoch,
                 color="black",
                 linestyle=":",
                 linewidth=2,
             )
+            ax1.text(
+                best_epoch,
+                1.02,
+                f"best epoch: {best_epoch}",
+                transform=ax1.get_xaxis_transform(),
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                color="black",
+            )
             ax1.set_xlabel("Época")
             ax1.set_title(f"Partición {partition} — tipo {neuron_type}")
             ax1.grid(axis="x", alpha=0.25)
-            (train_loss_line,) = ax_loss.plot(
-                losses_df["train_loss"],
-                losses_df["epoch"],
-                color="tab:blue",
-                linestyle="-",
-                linewidth=1.7,
-                label="Train loss",
-            )
-            ax_loss.axhline(
-                y=best_epoch,
-                color="black",
-                linestyle=":",
-                linewidth=2,
-            )
+
+            right_curves = [
+                (
+                    losses_df["train_loss"],
+                    losses_df["test_loss"],
+                    "Test loss",
+                    "tab:orange",
+                ),
+                (
+                    clustering_subset["train_loss"],
+                    clustering_subset["mean"],
+                    "Media clustering",
+                    "tab:green",
+                ),
+                (
+                    clustering_subset["train_loss"],
+                    clustering_subset["std_dev"],
+                    "Desv. clustering",
+                    "tab:red",
+                ),
+                (
+                    degree_subset["train_loss"],
+                    degree_subset["std_dev"],
+                    "Desv. grado",
+                    "tab:brown",
+                ),
+                (losses_df["train_loss"], losses_df["epoch"], "Época", "tab:purple"),
+            ]
+            axes_right = [ax_loss]
+            for _ in range(len(right_curves) - 1):
+                axes_right.append(ax_loss.twinx())
+
+            for i, (ax, curve) in enumerate(zip(axes_right, right_curves)):
+                x, y, label, color = curve
+                ax.plot(
+                    x,
+                    y,
+                    color=color,
+                    linewidth=1.7,
+                )
+                ax.set_ylabel(label, color=color)
+                ax.tick_params(axis="y", colors=color)
+                ax.yaxis.set_label_position("left")
+                ax.yaxis.tick_left()
+                ax.spines["right"].set_visible(False)
+                ax.spines["left"].set_visible(True)
+                ax.spines["left"].set_position(("outward", 55 * i))
+                ax.spines["left"].set_color(color)
+                if i > 0:
+                    ax.patch.set_visible(False)
+            best_row = losses_df[losses_df["epoch"] == best_epoch]
+            if not best_row.empty:
+                best_train_loss = best_row["train_loss"].iloc[0]
+                ax_loss.axvline(
+                    x=best_train_loss,
+                    color="black",
+                    linestyle=":",
+                    linewidth=2,
+                )
+                ax_loss.text(
+                    best_train_loss,
+                    1.02,
+                    "best_epoch",
+                    transform=ax_loss.get_xaxis_transform(),
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                    color="black",
+                )
             ax_loss.set_xlabel("Train loss")
-            ax_loss.set_ylabel("Época")
-            ax_loss.set_title("Train loss vs época")
-            ax_loss.grid(alpha=0.25)
-            lines.append(train_loss_line)
-            best_epoch_line = plt.Line2D(
-                [0],
-                [0],
-                color="black",
-                linestyle=":",
-                label=f"Best Epoch ({best_epoch})",
-            )
-            lines.append(best_epoch_line)
-            fig.legend(
-                handles=lines,
-                loc="center left",
-                bbox_to_anchor=(0.85, 0.5),
-                fontsize=9,
-                frameon=False,
-            )
+            ax_loss.set_title("Métricas y época frente a train loss")
+            ax_loss.grid(axis="x", alpha=0.25)
             fig.subplots_adjust(
                 left=0.30,
                 right=0.80,
@@ -801,7 +906,7 @@ def save_weighted_graph_training_metrics(
             color="black",
             linestyle=":",
             linewidth=2,
-            label=f"Best epoch ({best_epoch})",
+            label=f"best epoch: {best_epoch}",
         )
         ax1.set_xlabel("Epoch")
         ax1.set_title(f"Weighted graph metrics — hidden layer {hidden_layer}")
@@ -838,6 +943,37 @@ def save_weighted_graph_training_metrics(
             os.path.join(
                 output_path,
                 f"training_metrics_hidden_layer_{hidden_layer}.pdf",
+            ),
+            format="pdf",
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+
+def save_disparity_distribution_plots(disparity_index_path, output_path, epochs):
+    os.makedirs(output_path, exist_ok=True)
+    df = pd.read_csv(disparity_index_path)
+    for neuron_type in ("input", "hidden"):
+        fig, axes = plt.subplots(
+            1,
+            len(epochs),
+            figsize=(15, 4),
+            squeeze=False,
+        )
+        axes = axes[0]
+        for ax, epoch in zip(axes, epochs):
+            rows = df[(df["epoch"] == epoch) & (df["neuron_type"] == neuron_type)]
+            plot_disparity_degree_distribution(
+                ax,
+                rows,
+                neuron_type,
+            )
+            ax.set_title(f"Epoch {epoch}")
+        fig.tight_layout()
+        fig.savefig(
+            os.path.join(
+                output_path,
+                f"disparity_{neuron_type}_degree_distribution.pdf",
             ),
             format="pdf",
             bbox_inches="tight",

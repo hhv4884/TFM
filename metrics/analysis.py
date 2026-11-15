@@ -8,6 +8,7 @@ from .csv_utils import (
     update_csv_degree_info,
     update_csv_strength_info,
     update_csv_weighted_clustering_info,
+    update_csv_disparity_info,
 )
 
 
@@ -142,7 +143,7 @@ def weighted_clustering_index(fc1, fc2, epoch, clustering_path, hidden_layer):
     mean = float(np.nanmean(coefficients))
     median = float(np.nanmedian(coefficients))
     std_dev = float(np.nanstd(coefficients))
-    n_nodes = (fc1.weight.shape[1] + fc1.weight.shape[0] + fc2.weight.shape[0])
+    n_nodes = fc1.weight.shape[1] + fc1.weight.shape[0] + fc2.weight.shape[0]
     n_edges = (
         torch.count_nonzero(fc1.weight).item() + torch.count_nonzero(fc2.weight).item()
     )
@@ -200,6 +201,33 @@ def backbone_index(
     )
 
 
+def hidden_disparity_filter(fc1, alpha=0.05, both_ends=True):
+    W1 = fc1.weight.detach()
+    Ka = W1.abs().double()
+
+    def p_value(dim):
+        k = Ka.shape[dim]
+        s = Ka.sum(dim=dim, keepdim=True)
+        p = torch.where(s > 0, Ka / s.clamp(min=1e-15), 0.0)
+        return (1 - p).clamp(min=0).pow(k - 1)
+
+    keep = p_value(1) < alpha
+    if both_ends:
+        keep |= p_value(0) < alpha
+    keep &= Ka > 0
+    return keep
+
+
+def disparity_filter_index(
+    fc1, epoch, alpha, both_ends, disparity_path, partition_number=1
+):
+    keep = hidden_disparity_filter(fc1, alpha=alpha, both_ends=both_ends)
+    update_csv_disparity_info(epoch, keep, disparity_path,)
+    disparity_weight = keep.float()
+    degree_index(disparity_weight, epoch, 0.5, disparity_path, partition_number)
+    clustering_index(disparity_weight, epoch, 0.5, disparity_path, partition_number)
+
+
 def analyze_partition(weight, epoch, thresholds, csv_path, partition_number):
     weight = weight.detach().cpu()
     for threshold_percentile in thresholds:
@@ -226,20 +254,27 @@ def analyze_all_partitions(
     csv_path,
     calculate_strength=False,
     calculate_weighted_clustering=False,
-    backbone_alpha=0.01,
+    backbone_alphas=(0.01,),
+    calculate_disparity=False,
+    disparity_alphas=(0.05,),
+    disparity_both_ends=True,
 ):
     partitions = [layer for layer in model.net if isinstance(layer, nn.Linear)]
     for partition_number, layer in enumerate(partitions, start=1):
         analyze_partition(layer.weight, epoch, thresholds, csv_path, partition_number)
-        if backbone_alpha is not None:
-            backbone_path = os.path.join(csv_path, f"backbone_alpha_{backbone_alpha:g}")
-            backbone_index(
-                layer.weight,
-                epoch,
-                backbone_alpha,
-                backbone_path,
-                partition_number,
-            )
+    if backbone_alphas is not None:
+        for alpha in backbone_alphas:
+            if not 0 <= alpha <= 1:
+                raise ValueError(f"backbone alpha debe estar entre 0 y 1: {alpha}")
+            for partition_number, layer in enumerate(partitions, start=1):
+                backbone_path = os.path.join(csv_path, f"backbone_alpha_{alpha:g}")
+                backbone_index(
+                    layer.weight,
+                    epoch,
+                    alpha,
+                    backbone_path,
+                    partition_number,
+                )
     if calculate_strength:
         strength_path = os.path.join(csv_path, "weighted_graph", "strength")
         for i in range(len(partitions) - 1):
@@ -250,7 +285,6 @@ def analyze_all_partitions(
                 strength_path,
                 hidden_layer=i + 1,
             )
-
     if calculate_weighted_clustering:
         clustering_path = os.path.join(csv_path, "weighted_graph", "clustering")
         for i in range(len(partitions) - 1):
@@ -260,4 +294,20 @@ def analyze_all_partitions(
                 epoch,
                 clustering_path,
                 hidden_layer=i + 1,
+            )
+    if calculate_disparity:
+        for alpha in disparity_alphas:
+            if not 0 < alpha <= 1:
+                raise ValueError(f"disparity alpha debe estar en (0, 1]: {alpha}")
+            disparity_path = os.path.join(
+                csv_path,
+                f"disparity_alpha_{alpha:g}" f"_both_ends_{disparity_both_ends}",
+            )
+            disparity_filter_index(
+                fc1=partitions[0],
+                epoch=epoch,
+                alpha=alpha,
+                both_ends=disparity_both_ends,
+                disparity_path=disparity_path,
+                partition_number=1,
             )

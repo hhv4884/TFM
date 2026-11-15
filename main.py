@@ -19,6 +19,10 @@ def experiment():
             "n_models": 5,
             "calculate_strength": True,
             "calculate_weighted_clustering": True,
+            "backbone_alphas": [0.01],
+            "calculate_disparity": True,
+            "disparity_alphas": [0.05],
+            "disparity_both_ends": True,
         },
         {
             "architectures": [(2500, [1000], n_classes)],
@@ -27,6 +31,10 @@ def experiment():
             "n_models": 1,
             "calculate_strength": True,
             "calculate_weighted_clustering": True,
+            "backbone_alphas": [0.01],
+            "calculate_disparity": True,
+            "disparity_alphas": [0.05],
+            "disparity_both_ends": True,
         },
         {
             "architectures": [(2500, [1000], n_classes)],
@@ -35,6 +43,10 @@ def experiment():
             "n_models": 1,
             "calculate_strength": False,
             "calculate_weighted_clustering": False,
+            "backbone_alphas": [0.05, 0.1],
+            "calculate_disparity": True,
+            "disparity_alphas": [0.01, 0.1],
+            "disparity_both_ends": True,
         },
         {
             "architectures": [
@@ -47,6 +59,10 @@ def experiment():
             "n_models": 1,
             "calculate_strength": True,
             "calculate_weighted_clustering": True,
+            "backbone_alphas": [0.01],
+            "calculate_disparity": True,
+            "disparity_alphas": [0.05],
+            "disparity_both_ends": True,
         },
     ]
     for experiment_number, experiment_config in enumerate(experiments, start=1):
@@ -86,6 +102,10 @@ def experiment():
                         calculate_weighted_clustering=experiment_config[
                             "calculate_weighted_clustering"
                         ],
+                        backbone_alphas=experiment_config.get("backbone_alphas"),
+                        calculate_disparity=experiment_config["calculate_disparity"],
+                        disparity_alphas=experiment_config["disparity_alphas"],
+                        disparity_both_ends=experiment_config["disparity_both_ends"],
                     )
 
 

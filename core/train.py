@@ -62,6 +62,10 @@ def train_model(
     thresholds,
     calculate_strength=False,
     calculate_weighted_clustering=False,
+    backbone_alphas=(0.01,),
+    calculate_disparity=False,
+    disparity_alphas=(0.05,),
+    disparity_both_ends=True,
 ):
     model.to(device)
     criterion = nn.CrossEntropyLoss()
@@ -84,6 +88,10 @@ def train_model(
         thresholds,
         calculate_strength,
         calculate_weighted_clustering,
+        backbone_alphas,
+        calculate_disparity,
+        disparity_alphas,
+        disparity_both_ends,
     )
     for epoch in range(epochs):
         train_loss, train_accuracy = train_epoch(
@@ -104,7 +112,11 @@ def train_model(
             csv_path,
             thresholds,
             calculate_strength,
-            calculate_weighted_clustering
+            calculate_weighted_clustering,
+            backbone_alphas,
+            calculate_disparity,
+            disparity_alphas,
+            disparity_both_ends,
         )
         scheduler.step()
     return csv_path

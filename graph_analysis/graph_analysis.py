@@ -5,6 +5,7 @@ from .plot_utils import (
     load_losses_from_csv,
     save_training_metrics_plot,
     save_weighted_graph_training_metrics,
+    save_disparity_distribution_plots,
 )
 
 
@@ -24,7 +25,9 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
     strength_metrics_csv = os.path.join(
         weighted_graph_csv, "strength", "strength_metrics.csv"
     )
-    clustering_metrics_csv = os.path.join(weighted_graph_csv, "clustering","weighted_clustering_metrics.csv")
+    clustering_metrics_csv = os.path.join(
+        weighted_graph_csv, "clustering", "weighted_clustering_metrics.csv"
+    )
     strength_df = (
         pd.read_csv(strength_csv) if os.path.isfile(strength_csv) else pd.DataFrame()
     )
@@ -42,6 +45,7 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
         if not (
             threshold_folder.startswith("threshold_")
             or threshold_folder.startswith("backbone_alpha_")
+            or threshold_folder.startswith("disparity_alpha_")
         ):
             continue
         degree_csv = os.path.join(threshold_path, "degree_index.csv")
@@ -176,4 +180,27 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
             ),
             output_path=training_metrics_path,
             best_epoch=best_epoch,
+        )
+    for folder in sorted(os.listdir(graph_path)):
+        if not folder.startswith("disparity_alpha_"):
+            continue
+
+        disparity_csv = os.path.join(
+            graph_path,
+            folder,
+            "disparity_index.csv",
+        )
+
+        if not os.path.isfile(disparity_csv):
+            continue
+
+        disparity_plots_path = os.path.join(
+            plots_root,
+            folder,
+        )
+
+        save_disparity_distribution_plots(
+            disparity_index_path=disparity_csv,
+            output_path=disparity_plots_path,
+            epochs=selected_epochs,
         )

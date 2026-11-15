@@ -15,7 +15,10 @@ def update_csv_epoch_info(
     thresholds,
     calculate_strength=False,
     calculate_weighted_clustering=False,
-    backbone_alpha=0.01,
+    backbone_alphas=(0.01,),
+    calculate_disparity=False,
+    disparity_alphas=(0.05,),
+    disparity_both_ends=True,
 ):
     from .analysis import analyze_all_partitions
 
@@ -46,7 +49,10 @@ def update_csv_epoch_info(
         csv_path,
         calculate_strength,
         calculate_weighted_clustering,
-        backbone_alpha,
+        backbone_alphas,
+        calculate_disparity,
+        disparity_alphas,
+        disparity_both_ends,
     )
 
 
@@ -238,7 +244,15 @@ def update_csv_strength_info(
 
 
 def update_csv_weighted_clustering_info(
-    epoch, hidden_layer, coefficients, mean, median, std_dev, clustering_path, n_edges, n_nodes
+    epoch,
+    hidden_layer,
+    coefficients,
+    mean,
+    median,
+    std_dev,
+    clustering_path,
+    n_edges,
+    n_nodes,
 ):
     os.makedirs(clustering_path, exist_ok=True)
     values_csv = os.path.join(clustering_path, "weighted_clustering_index.csv")
@@ -252,7 +266,7 @@ def update_csv_weighted_clustering_info(
                 "neuron_index": neuron_index,
                 "clustering_coefficient": float(coefficient),
                 "n_edges": n_edges,
-                "n_nodes": n_nodes
+                "n_nodes": n_nodes,
             }
         )
     df = pd.DataFrame(rows)
@@ -269,7 +283,7 @@ def update_csv_weighted_clustering_info(
                 "median": median,
                 "std_dev": std_dev,
                 "n_edges": n_edges,
-                "n_nodes": n_nodes
+                "n_nodes": n_nodes,
             }
         ]
     )
@@ -282,3 +296,64 @@ def update_csv_weighted_clustering_info(
         )
     else:
         metrics.to_csv(metrics_csv, index=False)
+
+
+def update_csv_disparity_info(epoch, keep, disparity_path):
+    os.makedirs(disparity_path, exist_ok=True)
+    keep = keep.detach().cpu().bool()
+    hidden_degree = keep.sum(dim=1).numpy()
+    input_degree = keep.sum(dim=0).numpy()
+    n_edges = int(keep.sum().item())
+    n_hidden = keep.shape[0]
+    n_inputs = keep.shape[1]
+    n_possible_edges = n_hidden * n_inputs
+    density = n_edges / n_possible_edges if n_possible_edges > 0 else 0.0
+    values_path = os.path.join(disparity_path, "disparity_index.csv")
+    rows = []
+    for neuron_index, degree in enumerate(hidden_degree):
+        rows.append(
+            {
+                "epoch": epoch,
+                "neuron_type": "hidden",
+                "neuron_index": neuron_index,
+                "degree": int(degree),
+            }
+        )
+    for neuron_index, degree in enumerate(input_degree):
+        rows.append(
+            {
+                "epoch": epoch,
+                "neuron_type": "input",
+                "neuron_index": neuron_index,
+                "degree": int(degree),
+            }
+        )
+    df = pd.DataFrame(rows)
+    df.to_csv(
+        values_path,
+        mode="a" if os.path.isfile(values_path) else "w",
+        header=not os.path.isfile(values_path),
+        index=False,
+    )
+    metrics_path = os.path.join(
+        disparity_path,
+        "disparity_metrics.csv",
+    )
+    metrics = pd.DataFrame(
+        [
+            {
+                "epoch": epoch,
+                "n_edges": n_edges,
+                "n_possible_edges": n_possible_edges,
+                "density": density,
+                "mean_hidden_degree": float(np.mean(hidden_degree)),
+                "mean_input_degree": float(np.mean(input_degree)),
+            }
+        ]
+    )
+    metrics.to_csv(
+        metrics_path,
+        mode="a" if os.path.isfile(metrics_path) else "w",
+        header=not os.path.isfile(metrics_path),
+        index=False,
+    )

@@ -29,7 +29,21 @@ def run_experiment(
     model_id,
     calculate_strength=False,
     calculate_weighted_clustering=False,
+    backbone_alphas=(0.01,),
+    calculate_disparity=False,
+    disparity_alphas=(0.05,),
+    disparity_both_ends=True,
 ):
+    if backbone_alphas is not None:
+        if isinstance(backbone_alphas, (int, float)):
+            backbone_alphas = [backbone_alphas]
+        else:
+            backbone_alphas = list(backbone_alphas)
+
+    if isinstance(disparity_alphas, (int, float)):
+        disparity_alphas = [disparity_alphas]
+    else:
+        disparity_alphas = list(disparity_alphas)
     dimensions = create_dimensions_string(input_neurons, hidden_neurons, output_neurons)
     if task == "classification":
         parameter_name = "class_sep"
@@ -39,8 +53,7 @@ def run_experiment(
         parameter_value = cluster_std
     else:
         raise ValueError("This is not a registered type of task.")
-    model_path = os.path.join(
-        "trained_models",
+    relative_model_path = os.path.join(
         str(n_samples),
         task,
         dimensions,
@@ -49,8 +62,17 @@ def run_experiment(
         experiment_name,
         f"model_{model_id}",
     )
-    os.makedirs(model_path, exist_ok=True)
-    csv_path = os.path.join(model_path, "csv")
+    csv_model_path = os.path.join(
+        "trained_model_csv",
+        relative_model_path,
+    )
+    pdf_model_path = os.path.join(
+        "trained_models_pdf",
+        relative_model_path,
+    )
+    os.makedirs(csv_model_path, exist_ok=True)
+    os.makedirs(pdf_model_path, exist_ok=True)
+    csv_path = os.path.join(csv_model_path, "csv")
     train_loader, test_loader = load_dataset(
         task,
         batch_size,
@@ -78,12 +100,16 @@ def run_experiment(
         epochs,
         thresholds,
         calculate_strength,
-        calculate_weighted_clustering
+        calculate_weighted_clustering,
+        backbone_alphas,
+        calculate_disparity,
+        disparity_alphas,
+        disparity_both_ends,
     )
     create_separated_panels(
-        model_path=model_path,
+        model_path=pdf_model_path,
         graph_path=csv_path,
         logs_path=None,
         epochs=epochs,
     )
-    return model_path
+    return csv_model_path
