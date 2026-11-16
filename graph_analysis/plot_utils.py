@@ -756,12 +756,6 @@ def save_training_metrics_plot(
             ax_loss.set_ylabel("")
             ax_loss.set_title("Metrics vs. Training Loss")
             ax_loss.grid(axis="x", alpha=0.25)
-            ax_loss.legend(
-                handles=handles,
-                labels=labels,
-                fontsize=8,
-                loc="best",
-            )
             fig.subplots_adjust(
                 left=0.30,
                 right=0.98,
