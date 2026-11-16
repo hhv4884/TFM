@@ -772,6 +772,7 @@ def save_training_metrics_plot(
             plt.close(fig)
 
 
+
 def save_weighted_graph_training_metrics(
     epoch_info_path,
     strength_metrics_path,
@@ -787,14 +788,19 @@ def save_weighted_graph_training_metrics(
         raise ValueError(f"Faltan columnas en epochs_info.csv: {missing}")
     for col in ("epoch", "train_loss", "test_loss"):
         losses_df[col] = pd.to_numeric(losses_df[col], errors="coerce")
-    losses_df = losses_df.dropna(subset=["epoch", "train_loss", "test_loss"])
+
+    losses_df = losses_df.dropna(
+        subset=["epoch", "train_loss", "test_loss"]
+    )
     losses_df["epoch"] = losses_df["epoch"].astype(int)
-    losses_df = losses_df.drop_duplicates(subset=["epoch"], keep="last").sort_values(
-        "epoch"
+    losses_df = (
+        losses_df.drop_duplicates(subset=["epoch"], keep="last")
+        .sort_values("epoch")
     )
     strength_df = (
         pd.read_csv(strength_metrics_path)
-        if strength_metrics_path is not None and os.path.isfile(strength_metrics_path)
+        if strength_metrics_path is not None
+        and os.path.isfile(strength_metrics_path)
         else pd.DataFrame()
     )
     clustering_df = (
@@ -818,10 +824,15 @@ def save_weighted_graph_training_metrics(
             required = {"epoch", "hidden_layer", "mean", "std_dev"}
             missing = required - set(df.columns)
             if missing:
-                raise ValueError(f"Faltan columnas en {name}: {missing}")
+                raise ValueError(
+                    f"Faltan columnas en {name}: {missing}"
+                )
             for col in ("epoch", "hidden_layer", "mean", "std_dev"):
                 df[col] = pd.to_numeric(df[col], errors="coerce")
-            df.dropna(subset=["epoch", "hidden_layer"], inplace=True)
+            df.dropna(
+                subset=["epoch", "hidden_layer"],
+                inplace=True,
+            )
             df["epoch"] = df["epoch"].astype(int)
             df["hidden_layer"] = df["hidden_layer"].astype(int)
     hidden_layers = set()
@@ -831,84 +842,93 @@ def save_weighted_graph_training_metrics(
         hidden_layers.update(clustering_df["hidden_layer"].unique())
     for hidden_layer in sorted(hidden_layers):
         strength_subset = (
-            strength_df[strength_df["hidden_layer"] == hidden_layer].sort_values(
-                "epoch"
-            )
+            strength_df[
+                strength_df["hidden_layer"] == hidden_layer
+            ].sort_values("epoch")
             if not strength_df.empty
             else pd.DataFrame()
         )
         clustering_subset = (
-            clustering_df[clustering_df["hidden_layer"] == hidden_layer].sort_values(
-                "epoch"
-            )
+            clustering_df[
+                clustering_df["hidden_layer"] == hidden_layer
+            ].sort_values("epoch")
             if not clustering_df.empty
             else pd.DataFrame()
         )
         curves = []
         if not strength_subset.empty:
-            curves.extend(
-                [
+            strength_data = strength_subset.merge(
+                losses_df[["epoch", "train_loss"]],
+                on="epoch",
+                how="inner",
+            )
+            if not strength_data.empty:
+                curves.extend([
                     (
-                        strength_subset["epoch"],
-                        strength_subset["mean"],
+                        strength_data["epoch"],
+                        strength_data["mean"],
+                        strength_data["train_loss"],
                         "Mean strength",
                         "tab:blue",
                     ),
                     (
-                        strength_subset["epoch"],
-                        strength_subset["std_dev"],
+                        strength_data["epoch"],
+                        strength_data["std_dev"],
+                        strength_data["train_loss"],
                         "Strength std. dev.",
                         "tab:cyan",
                     ),
-                ]
-            )
+                ])
         if not clustering_subset.empty:
-            curves.extend(
-                [
+            clustering_data = clustering_subset.merge(
+                losses_df[["epoch", "train_loss"]],
+                on="epoch",
+                how="inner",
+            )
+            if not clustering_data.empty:
+                curves.extend([
                     (
-                        clustering_subset["epoch"],
-                        clustering_subset["mean"],
+                        clustering_data["epoch"],
+                        clustering_data["mean"],
+                        clustering_data["train_loss"],
                         "Mean weighted clustering",
                         "tab:green",
                     ),
                     (
-                        clustering_subset["epoch"],
-                        clustering_subset["std_dev"],
+                        clustering_data["epoch"],
+                        clustering_data["std_dev"],
+                        clustering_data["train_loss"],
                         "Clustering std. dev.",
                         "tab:red",
                     ),
-                ]
-            )
-        curves.append(
-            (
-                losses_df["epoch"],
-                losses_df["test_loss"],
-                "Test loss",
-                "tab:orange",
-            )
-        )
-        fig = plt.figure(figsize=(16, 5))
+                ])
+        curves.append((
+            losses_df["epoch"],
+            losses_df["test_loss"],
+            losses_df["train_loss"],
+            "Test loss",
+            "tab:orange",
+        ))
+        fig = plt.figure(figsize=(19, 4))
         gs = fig.add_gridspec(
             1,
             2,
-            width_ratios=[3.5, 1.2],
-            wspace=0.25,
+            width_ratios=[3.2, 1.8],
+            wspace=0.05,
         )
         ax1 = fig.add_subplot(gs[0, 0])
         ax_loss = fig.add_subplot(gs[0, 1])
         axes_y = [ax1]
         for _ in range(len(curves) - 1):
             axes_y.append(ax1.twinx())
-        lines = []
         for i, (axis, curve) in enumerate(zip(axes_y, curves)):
-            x, y, label, color = curve
-            (line,) = axis.plot(
-                x,
-                y,
+            epochs, values, train_losses, label, color = curve
+            axis.plot(
+                epochs,
+                values,
                 color=color,
                 linestyle="-",
                 linewidth=1.7,
-                label=label,
             )
             axis.set_ylabel(label, color=color)
             axis.tick_params(axis="y", colors=color)
@@ -916,49 +936,73 @@ def save_weighted_graph_training_metrics(
             axis.yaxis.tick_left()
             axis.spines["right"].set_visible(False)
             axis.spines["left"].set_visible(True)
-            axis.spines["left"].set_position(("outward", 50 * i))
+            axis.spines["left"].set_position(
+                ("outward", 55 * i)
+            )
             axis.spines["left"].set_color(color)
             if i > 0:
                 axis.patch.set_visible(False)
-
-            lines.append(line)
         ax1.axvline(
             x=best_epoch,
             color="black",
             linestyle=":",
             linewidth=2,
-            label=f"best epoch: {best_epoch}",
         )
         ax1.set_xlabel("Epoch")
-        ax1.set_title(f"Weighted graph metrics — hidden layer {hidden_layer}")
+        ax1.set_title("Metrics vs. Epoch")
         ax1.grid(axis="x", alpha=0.25)
-        (train_loss_line,) = ax_loss.plot(
+        right_axes = []
+        for i, (curve, left_axis) in enumerate(zip(curves, axes_y)):
+            epochs, values, train_losses, label, color = curve
+
+            right_axis = (
+                ax_loss if i == 0 else ax_loss.twinx()
+            )
+            right_axis.plot(
+                train_losses,
+                values,
+                color=color,
+                linestyle="-",
+                linewidth=1.7,
+            )
+            right_axis.set_ylim(left_axis.get_ylim())
+            right_axis.set_ylabel("")
+            right_axis.set_yticks([])
+            right_axis.spines["right"].set_visible(False)
+            right_axis.spines["left"].set_visible(False)
+            right_axis.patch.set_visible(False)
+            right_axes.append(right_axis)
+        ax_epoch = ax_loss.twinx()
+        ax_epoch.plot(
             losses_df["train_loss"],
             losses_df["epoch"],
             color="tab:blue",
             linestyle="-",
             linewidth=1.7,
-            label="Train loss",
         )
+        ax_epoch.set_ylabel("Epoch", color="tab:blue")
+        ax_epoch.tick_params(axis="y", colors="tab:blue")
+        ax_epoch.spines["right"].set_color("tab:blue")
+        best_row = losses_df[
+            losses_df["epoch"] == best_epoch
+        ]
+        if not best_row.empty:
+            best_train_loss = best_row["train_loss"].iloc[0]
+            ax_loss.axvline(
+                x=best_train_loss,
+                color="black",
+                linestyle=":",
+                linewidth=2,
+            )
         ax_loss.set_xlabel("Train loss")
-        ax_loss.set_ylabel("Epoch")
-        ax_loss.set_title("Train loss vs epoch")
-        ax_loss.grid(alpha=0.25)
-        lines.append(ax1.get_lines()[-1])
-        lines.append(train_loss_line)
-        fig.legend(
-            handles=lines,
-            loc="center left",
-            bbox_to_anchor=(0.82, 0.5),
-            fontsize=9,
-            frameon=False,
-        )
+        ax_loss.set_title("Metrics vs. Training Loss")
+        ax_loss.grid(axis="x", alpha=0.25)
         fig.subplots_adjust(
             left=0.30,
-            right=0.80,
-            bottom=0.18,
-            top=0.85,
-            wspace=0.25,
+            right=0.98,
+            bottom=0.16,
+            top=0.88,
+            wspace=0.05,
         )
         fig.savefig(
             os.path.join(
@@ -969,7 +1013,6 @@ def save_weighted_graph_training_metrics(
             bbox_inches="tight",
         )
         plt.close(fig)
-
 
 def save_disparity_distribution_plots(disparity_index_path, output_path, epochs):
     os.makedirs(output_path, exist_ok=True)
