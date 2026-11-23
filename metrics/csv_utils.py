@@ -202,6 +202,7 @@ def update_csv_strength_info(
         ("in", input_strength),
         ("out", output_strength),
     ]:
+        n_nodes = len(values)
         for neuron_index, value in enumerate(values):
             rows.append(
                 {
@@ -210,6 +211,7 @@ def update_csv_strength_info(
                     "neuron_type": neuron_type,
                     "neuron_index": neuron_index,
                     "strength": float(value),
+                    "n_nodes": n_nodes
                 }
             )
     df = pd.DataFrame(rows)
@@ -236,6 +238,7 @@ def update_csv_strength_info(
                 ),
                 "std_dev": float(np.std(valid_values)) if len(valid_values) else np.nan,
                 "n_valid": len(valid_values),
+                "n_nodes": len(values)
             }
         )
     metrics_df = pd.DataFrame(metrics_rows)

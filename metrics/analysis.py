@@ -122,8 +122,8 @@ def weighted_clustering(Kb):
 
 def input_weighted_bipartite_clustering(fc):
     W = fc.weight.detach().double()
-    cc_out = weighted_clustering(W)
-    cc_in = weighted_clustering(W.T)
+    cc_in = weighted_clustering(W)
+    cc_out = weighted_clustering(W.T)
     return cc_in, cc_out
 
 
@@ -131,8 +131,14 @@ def weighted_clustering_index(fc, epoch, clustering_path, partition_number):
     cc_in, cc_out = input_weighted_bipartite_clustering(fc)
     W = fc.weight.detach()
     n_edges = torch.count_nonzero(W).item()
-    n_nodes = W.shape[0] + W.shape[1]
-    for neuron_type, coefficients in [("in", cc_in), ("out", cc_out),]:
+    n_nodes_by_type = {
+            "in":W.shape[0],
+            "out":W.shape[1]
+            }
+    for neuron_type, coefficients in [
+        ("in", cc_in),
+        ("out", cc_out),
+    ]:
         coefficients = coefficients.cpu().numpy()
         valid = coefficients[np.isfinite(coefficients)]
         if len(valid) > 0:
@@ -151,7 +157,7 @@ def weighted_clustering_index(fc, epoch, clustering_path, partition_number):
             std_dev,
             clustering_path,
             n_edges,
-            n_nodes,
+            n_nodes_by_type[neuron_type],
         )
 
 

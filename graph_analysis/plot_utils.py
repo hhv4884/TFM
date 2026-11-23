@@ -65,8 +65,16 @@ def plot_strength_counts(ax, rows, epoch, losses):
     test_loss = epoch_losses.get("test_loss")
     train_text = f"{train_loss:.4f}" if train_loss is not None else "N/A"
     test_text = f"{test_loss:.4f}" if test_loss is not None else "N/A"
+    n_nodes = (
+        int(rows["n_nodes"].iloc[0])
+        if not rows.empty and "n_nodes" in rows.columns
+        else "N/A"
+    )
     info_text = (
-        f"\nEpoch: {epoch}\n" f"Train Loss: {train_text}\n" f"Test Loss: {test_text}"
+        f"\nEpoch: {epoch}\n"
+        f"Nodes: {n_nodes}\n"
+        f"Train Loss: {train_text}\n"
+        f"Test Loss: {test_text}"
     )
     ax.text(
         0.98,
@@ -1056,46 +1064,6 @@ def save_weighted_graph_training_metrics(
             filename = f"training_metrics_partition_{partition}_" f"{neuron_type}.pdf"
             fig.savefig(
                 os.path.join(output_path, filename),
-                format="pdf",
-                bbox_inches="tight",
-            )
-            plt.close(fig)
-
-
-def save_disparity_distribution_plots(disparity_index_path, output_path, epochs):
-    df = pd.read_csv(disparity_index_path)
-    for partition in sorted(df["partition"].unique()):
-        partition_path = os.path.join(
-            output_path,
-            f"partition_{partition}",
-        )
-        os.makedirs(partition_path, exist_ok=True)
-        partition_df = df[df["partition"] == partition]
-        for neuron_type in ("in", "out"):
-            fig, axes = plt.subplots(
-                1,
-                len(epochs),
-                figsize=(15, 4),
-                squeeze=False,
-            )
-            axes = axes[0]
-            for ax, epoch in zip(axes, epochs):
-                rows = partition_df[
-                    (partition_df["epoch"] == epoch)
-                    & (partition_df["neuron_type"] == neuron_type)
-                ]
-                plot_disparity_degree_distribution(
-                    ax,
-                    rows,
-                    neuron_type,
-                )
-                ax.set_title(f"Epoch {epoch}")
-            fig.tight_layout()
-            fig.savefig(
-                os.path.join(
-                    partition_path,
-                    f"{neuron_type}_degree_distribution.pdf",
-                ),
                 format="pdf",
                 bbox_inches="tight",
             )

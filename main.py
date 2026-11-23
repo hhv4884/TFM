@@ -45,7 +45,7 @@ def experiment():
             "calculate_weighted_clustering": False,
             "backbone_alphas": [0.05, 0.1],
             "calculate_disparity": True,
-            "disparity_alphas": [0.01, 0.1],
+            "disparity_alphas": [0.5, 0.1, 0.05],
             "disparity_both_ends": True,
         },
         {
@@ -53,6 +53,21 @@ def experiment():
                 (1000, [1000], n_classes),
                 (1000, [2500], n_classes),
                 (2500, [2500], n_classes),
+            ],
+            "difficulties": [1.0],
+            "thresholds": [None],
+            "n_models": 1,
+            "calculate_strength": True,
+            "calculate_weighted_clustering": True,
+            "backbone_alphas": [0.01],
+            "calculate_disparity": True,
+            "disparity_alphas": [0.05],
+            "disparity_both_ends": True,
+        },
+        # de prueba para más de una capa
+        {
+            "architectures": [
+                (2500, [1000, 1000], n_classes),
             ],
             "difficulties": [1.0],
             "thresholds": [None],

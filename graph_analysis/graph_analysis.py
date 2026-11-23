@@ -5,7 +5,6 @@ from .plot_utils import (
     load_losses_from_csv,
     save_training_metrics_plot,
     save_weighted_graph_training_metrics,
-    save_disparity_distribution_plots,
 )
 
 
@@ -174,27 +173,4 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
             ),
             output_path=training_metrics_path,
             best_epoch=best_epoch,
-        )
-    for folder in sorted(os.listdir(graph_path)):
-        if not folder.startswith("disparity_alpha_"):
-            continue
-
-        disparity_csv = os.path.join(
-            graph_path,
-            folder,
-            "disparity_index.csv",
-        )
-
-        if not os.path.isfile(disparity_csv):
-            continue
-
-        disparity_plots_path = os.path.join(
-            plots_root,
-            folder,
-        )
-
-        save_disparity_distribution_plots(
-            disparity_index_path=disparity_csv,
-            output_path=disparity_plots_path,
-            epochs=selected_epochs,
         )
