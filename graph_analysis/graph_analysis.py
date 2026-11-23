@@ -110,54 +110,48 @@ def create_separated_panels(model_path, graph_path, logs_path, epochs):
                 clustering_data=partition_clustering_df,
             )
     weighted_graph_plots = os.path.join(plots_root, "weighted_graph")
-    hidden_layers = set()
+    partitions = set()
     if not strength_df.empty:
-        hidden_layers.update(strength_df["hidden_layer"].dropna().astype(int).unique())
+        partitions.update(strength_df["partition"].dropna().astype(int).unique())
     if not weighted_clustering_df.empty:
-        hidden_layers.update(
-            weighted_clustering_df["hidden_layer"].dropna().astype(int).unique()
+        partitions.update(
+            weighted_clustering_df["partition"].dropna().astype(int).unique()
         )
-    for hidden_layer in sorted(hidden_layers):
-        hidden_layer_data = (
-            strength_df[strength_df["hidden_layer"] == hidden_layer].copy()
-            if not strength_df.empty
-            else pd.DataFrame()
-        )
-        hidden_layer_clustering_data = (
-            weighted_clustering_df[
-                weighted_clustering_df["hidden_layer"] == hidden_layer
+    for partition_number in sorted(partitions):
+        if not strength_df.empty:
+            partition_strength_df = strength_df[
+                strength_df["partition"] == partition_number
             ].copy()
-            if not weighted_clustering_df.empty
-            else pd.DataFrame()
-        )
-        if not hidden_layer_data.empty:
-            strength_plot_path = os.path.join(
-                weighted_graph_plots,
-                "strength",
-                f"hidden_layer_{hidden_layer}",
-            )
-            save_partition_pdf_plots(
-                partition_path=strength_plot_path,
-                partition_number=hidden_layer,
-                epochs=selected_epochs,
-                losses=losses,
-                strength_data=hidden_layer_data,
-                hidden_layer=hidden_layer,
-            )
-        if not hidden_layer_clustering_data.empty:
-            clustering_plot_path = os.path.join(
-                weighted_graph_plots,
-                "clustering",
-                f"hidden_layer_{hidden_layer}",
-            )
-            save_partition_pdf_plots(
-                partition_path=clustering_plot_path,
-                partition_number=hidden_layer,
-                epochs=selected_epochs,
-                losses=losses,
-                weighted_clustering_data=hidden_layer_clustering_data,
-                hidden_layer=hidden_layer,
-            )
+            if not partition_strength_df.empty:
+                strength_plot_path = os.path.join(
+                    weighted_graph_plots,
+                    "strength",
+                    f"partition_{partition_number}",
+                )
+                save_partition_pdf_plots(
+                    partition_path=strength_plot_path,
+                    partition_number=partition_number,
+                    epochs=selected_epochs,
+                    losses=losses,
+                    strength_data=partition_strength_df,
+                )
+        if not weighted_clustering_df.empty:
+            partition_clustering_df = weighted_clustering_df[
+                weighted_clustering_df["partition"] == partition_number
+            ].copy()
+            if not partition_clustering_df.empty:
+                clustering_plot_path = os.path.join(
+                    weighted_graph_plots,
+                    "clustering",
+                    f"partition_{partition_number}",
+                )
+                save_partition_pdf_plots(
+                    partition_path=clustering_plot_path,
+                    partition_number=partition_number,
+                    epochs=selected_epochs,
+                    losses=losses,
+                    weighted_clustering_data=partition_clustering_df,
+                )
 
     if os.path.isfile(strength_metrics_csv) or os.path.isfile(clustering_metrics_csv):
         training_metrics_path = os.path.join(

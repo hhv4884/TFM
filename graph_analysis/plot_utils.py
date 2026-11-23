@@ -60,7 +60,14 @@ def plot_strength_counts(ax, rows, epoch, losses):
                 f"Median: {np.median(values):.4f}\n"
                 f"Std. dev.: {np.std(values):.4f}"
             )
-    info_text = get_weighted_graph_info(rows, epoch, losses)
+    epoch_losses = losses.get(epoch, {})
+    train_loss = epoch_losses.get("train_loss")
+    test_loss = epoch_losses.get("test_loss")
+    train_text = f"{train_loss:.4f}" if train_loss is not None else "N/A"
+    test_text = f"{test_loss:.4f}" if test_loss is not None else "N/A"
+    info_text = (
+        f"\nEpoch: {epoch}\n" f"Train Loss: {train_text}\n" f"Test Loss: {test_text}"
+    )
     ax.text(
         0.98,
         0.97,
@@ -201,10 +208,9 @@ def _normalize_clustering_columns(clustering_df):
 def _normalize_strength_columns(strength_data):
     required_columns = [
         "epoch",
-        "hidden_layer",
+        "partition",
+        "neuron_type",
         "neuron_index",
-        "input_strength",
-        "output_strength",
         "strength",
     ]
     if strength_data is None or strength_data.empty:
@@ -216,15 +222,21 @@ def _normalize_strength_columns(strength_data):
     missing_columns = set(required_columns) - set(df.columns)
     if missing_columns:
         raise ValueError(f"Missing columns in strength data: {missing_columns}")
-    for column in required_columns:
+    for column in (
+        "epoch",
+        "partition",
+        "neuron_index",
+        "strength",
+    ):
         df[column] = pd.to_numeric(df[column], errors="coerce")
-    return df.dropna(subset=["epoch", "hidden_layer", "neuron_index", "strength"])
+    return df.dropna(subset=["epoch", "partition", "neuron_index", "strength"])
 
 
 def _normalize_weighted_clustering_columns(data):
     required_columns = [
         "epoch",
-        "hidden_layer",
+        "partition",
+        "neuron_type",
         "neuron_index",
         "clustering_coefficient",
     ]
@@ -237,9 +249,20 @@ def _normalize_weighted_clustering_columns(data):
     missing = set(required_columns) - set(df.columns)
     if missing:
         raise ValueError(f"Missing columns in weighted clustering data: {missing}")
-    for column in required_columns:
+    for column in (
+        "epoch",
+        "partition",
+        "neuron_index",
+        "clustering_coefficient",
+    ):
         df[column] = pd.to_numeric(df[column], errors="coerce")
-    return df.dropna(subset=["epoch", "hidden_layer", "neuron_index"])
+    return df.dropna(
+        subset=[
+            "epoch",
+            "partition",
+            "neuron_index",
+        ]
+    )
 
 
 def save_partition_pdf_plots(
@@ -313,53 +336,73 @@ def save_partition_pdf_plots(
                 bbox_inches="tight",
             )
             plt.close(fig)
-
     if not strength_df.empty:
-        strength_df = strength_df[strength_df["hidden_layer"] == hidden_layer]
+        strength_df = strength_df[strength_df["partition"] == partition_number]
         if not strength_df.empty:
-            fig, axes = plt.subplots(1, len(epochs), figsize=(15, 4), squeeze=False)
-            axes = axes[0]
-            for ax, epoch in zip(axes, epochs):
-                rows = strength_df[strength_df["epoch"] == epoch]
-                plot_strength_counts(ax, rows, epoch, losses)
-                ax.set_title(f"Epoch {epoch}")
-            fig.tight_layout()
-            fig.savefig(
-                os.path.join(
-                    partition_path,
-                    f"hidden_layer_{hidden_layer}_strength_distribution.pdf",
-                ),
-                format="pdf",
-                bbox_inches="tight",
-            )
-            plt.close(fig)
-
+            for neuron_type in ("in", "out"):
+                fig, axes = plt.subplots(
+                    1,
+                    len(epochs),
+                    figsize=(15, 4),
+                    squeeze=False,
+                )
+                axes = axes[0]
+                for ax, epoch in zip(axes, epochs):
+                    rows = strength_df[
+                        (strength_df["epoch"] == epoch)
+                        & (strength_df["neuron_type"] == neuron_type)
+                    ]
+                    plot_strength_counts(ax, rows, epoch, losses)
+                    ax.set_title(f"Epoch {epoch}")
+                fig.tight_layout()
+                fig.savefig(
+                    os.path.join(
+                        partition_path,
+                        f"partition_{partition_number}_"
+                        f"{neuron_type}_strength_distribution.pdf",
+                    ),
+                    format="pdf",
+                    bbox_inches="tight",
+                )
+                plt.close(fig)
     if not weighted_clustering_df.empty:
         weighted_clustering_df = weighted_clustering_df[
-            weighted_clustering_df["hidden_layer"] == hidden_layer
+            weighted_clustering_df["partition"] == partition_number
         ]
         if not weighted_clustering_df.empty:
-            fig, axes = plt.subplots(
-                1,
-                len(epochs),
-                figsize=(15, 4),
-                squeeze=False,
-            )
-            axes = axes[0]
-            for ax, epoch in zip(axes, epochs):
-                rows = weighted_clustering_df[weighted_clustering_df["epoch"] == epoch]
-                plot_weighted_clustering_counts(ax, rows, epoch, losses)
-                ax.set_title(f"Epoch {epoch}")
-            fig.tight_layout()
-            fig.savefig(
-                os.path.join(
-                    partition_path,
-                    f"hidden_layer_{hidden_layer}_weighted_clustering_distribution.pdf",
-                ),
-                format="pdf",
-                bbox_inches="tight",
-            )
-            plt.close(fig)
+            for neuron_type in ("in", "out"):
+                type_df = weighted_clustering_df[
+                    weighted_clustering_df["neuron_type"] == neuron_type
+                ]
+                if type_df.empty:
+                    continue
+                fig, axes = plt.subplots(
+                    1,
+                    len(epochs),
+                    figsize=(15, 4),
+                    squeeze=False,
+                )
+                axes = axes[0]
+                for ax, epoch in zip(axes, epochs):
+                    rows = type_df[type_df["epoch"] == epoch]
+                    plot_weighted_clustering_counts(
+                        ax,
+                        rows,
+                        epoch,
+                        losses,
+                    )
+                    ax.set_title(f"Epoch {epoch}")
+                fig.tight_layout()
+                fig.savefig(
+                    os.path.join(
+                        partition_path,
+                        f"partition_{partition_number}_"
+                        f"{neuron_type}_weighted_clustering_distribution.pdf",
+                    ),
+                    format="pdf",
+                    bbox_inches="tight",
+                )
+                plt.close(fig)
 
 
 def load_losses_from_csv(epochs_info_path):
@@ -753,6 +796,7 @@ def save_training_metrics_plot(
                     linewidth=2,
                 )
             ax_loss.set_xlabel("Train loss")
+            ax_loss.invert_xaxis()
             ax_loss.set_ylabel("")
             ax_loss.set_title("Metrics vs. Training Loss")
             ax_loss.grid(axis="x", alpha=0.25)
@@ -772,7 +816,6 @@ def save_training_metrics_plot(
             plt.close(fig)
 
 
-
 def save_weighted_graph_training_metrics(
     epoch_info_path,
     strength_metrics_path,
@@ -788,19 +831,14 @@ def save_weighted_graph_training_metrics(
         raise ValueError(f"Faltan columnas en epochs_info.csv: {missing}")
     for col in ("epoch", "train_loss", "test_loss"):
         losses_df[col] = pd.to_numeric(losses_df[col], errors="coerce")
-
-    losses_df = losses_df.dropna(
-        subset=["epoch", "train_loss", "test_loss"]
-    )
+    losses_df = losses_df.dropna(subset=["epoch", "train_loss", "test_loss"])
     losses_df["epoch"] = losses_df["epoch"].astype(int)
-    losses_df = (
-        losses_df.drop_duplicates(subset=["epoch"], keep="last")
-        .sort_values("epoch")
+    losses_df = losses_df.drop_duplicates(subset=["epoch"], keep="last").sort_values(
+        "epoch"
     )
     strength_df = (
         pd.read_csv(strength_metrics_path)
-        if strength_metrics_path is not None
-        and os.path.isfile(strength_metrics_path)
+        if strength_metrics_path is not None and os.path.isfile(strength_metrics_path)
         else pd.DataFrame()
     )
     clustering_df = (
@@ -816,99 +854,139 @@ def save_weighted_graph_training_metrics(
                 .str.strip()
                 .str.replace("\ufeff", "", regex=False)
             )
-    for name, df in (
-        ("strength_metrics", strength_df),
-        ("weighted_clustering_metrics", clustering_df),
-    ):
-        if not df.empty:
-            required = {"epoch", "hidden_layer", "mean", "std_dev"}
-            missing = required - set(df.columns)
-            if missing:
-                raise ValueError(
-                    f"Faltan columnas en {name}: {missing}"
-                )
-            for col in ("epoch", "hidden_layer", "mean", "std_dev"):
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-            df.dropna(
-                subset=["epoch", "hidden_layer"],
-                inplace=True,
-            )
-            df["epoch"] = df["epoch"].astype(int)
-            df["hidden_layer"] = df["hidden_layer"].astype(int)
-    hidden_layers = set()
     if not strength_df.empty:
-        hidden_layers.update(strength_df["hidden_layer"].unique())
+        required = {
+            "epoch",
+            "partition",
+            "neuron_type",
+            "mean",
+            "std_dev",
+        }
+        missing = required - set(strength_df.columns)
+        if missing:
+            raise ValueError(f"Faltan columnas en strength_metrics: {missing}")
+        for col in ("epoch", "partition", "mean", "std_dev"):
+            strength_df[col] = pd.to_numeric(strength_df[col], errors="coerce")
+        strength_df = strength_df.dropna(subset=["epoch", "partition"])
+        strength_df["epoch"] = strength_df["epoch"].astype(int)
+        strength_df["partition"] = strength_df["partition"].astype(int)
     if not clustering_df.empty:
-        hidden_layers.update(clustering_df["hidden_layer"].unique())
-    for hidden_layer in sorted(hidden_layers):
+        required = {
+            "epoch",
+            "partition",
+            "neuron_type",
+            "mean",
+            "std_dev",
+        }
+        missing = required - set(clustering_df.columns)
+        if missing:
+            raise ValueError(
+                f"Faltan columnas en weighted_clustering_metrics: {missing}"
+            )
+        for col in ("epoch", "partition", "mean", "std_dev"):
+            clustering_df[col] = pd.to_numeric(clustering_df[col], errors="coerce")
+        clustering_df = clustering_df.dropna(subset=["epoch", "partition"])
+        clustering_df["epoch"] = clustering_df["epoch"].astype(int)
+        clustering_df["partition"] = clustering_df["partition"].astype(int)
+    partitions = set()
+    if not strength_df.empty:
+        partitions.update(strength_df["partition"].unique())
+    if not clustering_df.empty:
+        partitions.update(clustering_df["partition"].unique())
+    for partition in sorted(partitions):
         strength_subset = (
-            strength_df[
-                strength_df["hidden_layer"] == hidden_layer
-            ].sort_values("epoch")
+            strength_df[strength_df["partition"] == partition].sort_values("epoch")
             if not strength_df.empty
             else pd.DataFrame()
         )
         clustering_subset = (
-            clustering_df[
-                clustering_df["hidden_layer"] == hidden_layer
-            ].sort_values("epoch")
+            clustering_df[clustering_df["partition"] == partition].sort_values("epoch")
             if not clustering_df.empty
             else pd.DataFrame()
         )
         curves = []
         if not strength_subset.empty:
-            strength_data = strength_subset.merge(
-                losses_df[["epoch", "train_loss"]],
-                on="epoch",
-                how="inner",
-            )
-            if not strength_data.empty:
-                curves.extend([
-                    (
-                        strength_data["epoch"],
-                        strength_data["mean"],
-                        strength_data["train_loss"],
-                        "Mean strength",
-                        "tab:blue",
-                    ),
-                    (
-                        strength_data["epoch"],
-                        strength_data["std_dev"],
-                        strength_data["train_loss"],
-                        "Strength std. dev.",
-                        "tab:cyan",
-                    ),
-                ])
+            for neuron_type in ("in", "out"):
+                subset = strength_subset[
+                    strength_subset["neuron_type"] == neuron_type
+                ].sort_values("epoch")
+
+                if not subset.empty:
+                    curves.extend(
+                        [
+                            (
+                                subset["epoch"],
+                                subset["mean"],
+                                (
+                                    subset["train_loss"]
+                                    if "train_loss" in subset.columns
+                                    else losses_df.set_index("epoch")
+                                    .reindex(subset["epoch"])["train_loss"]
+                                    .to_numpy()
+                                ),
+                                f"Mean strength {neuron_type}",
+                                "tab:blue" if neuron_type == "in" else "tab:cyan",
+                            ),
+                            (
+                                subset["epoch"],
+                                subset["std_dev"],
+                                (
+                                    subset["train_loss"]
+                                    if "train_loss" in subset.columns
+                                    else losses_df.set_index("epoch")
+                                    .reindex(subset["epoch"])["train_loss"]
+                                    .to_numpy()
+                                ),
+                                f"Strength std. dev. {neuron_type}",
+                                "tab:green" if neuron_type == "in" else "tab:olive",
+                            ),
+                        ]
+                    )
         if not clustering_subset.empty:
-            clustering_data = clustering_subset.merge(
-                losses_df[["epoch", "train_loss"]],
-                on="epoch",
-                how="inner",
+            for neuron_type in ("in", "out"):
+                type_subset = clustering_subset[
+                    clustering_subset["neuron_type"] == neuron_type
+                ]
+                if type_subset.empty:
+                    continue
+                clustering_data = type_subset.merge(
+                    losses_df[["epoch", "train_loss"]],
+                    on="epoch",
+                    how="inner",
+                )
+                if not clustering_data.empty:
+                    colors = (
+                        ("tab:red", "tab:pink")
+                        if neuron_type == "in"
+                        else ("tab:purple", "tab:brown")
+                    )
+                    curves.extend(
+                        [
+                            (
+                                clustering_data["epoch"],
+                                clustering_data["mean"],
+                                clustering_data["train_loss"],
+                                f"Mean weighted clustering {neuron_type}",
+                                colors[0],
+                            ),
+                            (
+                                clustering_data["epoch"],
+                                clustering_data["std_dev"],
+                                clustering_data["train_loss"],
+                                f"Clustering std. dev. {neuron_type}",
+                                colors[1],
+                            ),
+                        ]
+                    )
+        curves.append(
+            (
+                losses_df["epoch"],
+                losses_df["test_loss"],
+                losses_df["train_loss"],
+                "Test loss",
+                "tab:orange",
             )
-            if not clustering_data.empty:
-                curves.extend([
-                    (
-                        clustering_data["epoch"],
-                        clustering_data["mean"],
-                        clustering_data["train_loss"],
-                        "Mean weighted clustering",
-                        "tab:green",
-                    ),
-                    (
-                        clustering_data["epoch"],
-                        clustering_data["std_dev"],
-                        clustering_data["train_loss"],
-                        "Clustering std. dev.",
-                        "tab:red",
-                    ),
-                ])
-        curves.append((
-            losses_df["epoch"],
-            losses_df["test_loss"],
-            losses_df["train_loss"],
-            "Test loss",
-            "tab:orange",
-        ))
+        )
         fig = plt.figure(figsize=(19, 4))
         gs = fig.add_gridspec(
             1,
@@ -922,13 +1000,14 @@ def save_weighted_graph_training_metrics(
         for _ in range(len(curves) - 1):
             axes_y.append(ax1.twinx())
         for i, (axis, curve) in enumerate(zip(axes_y, curves)):
-            epochs, values, train_losses, label, color = curve
+            epochs_curve, values, train_losses, label, color = curve
             axis.plot(
-                epochs,
+                epochs_curve,
                 values,
                 color=color,
                 linestyle="-",
                 linewidth=1.7,
+                label=label,
             )
             axis.set_ylabel(label, color=color)
             axis.tick_params(axis="y", colors=color)
@@ -936,9 +1015,7 @@ def save_weighted_graph_training_metrics(
             axis.yaxis.tick_left()
             axis.spines["right"].set_visible(False)
             axis.spines["left"].set_visible(True)
-            axis.spines["left"].set_position(
-                ("outward", 55 * i)
-            )
+            axis.spines["left"].set_position(("outward", 55 * i))
             axis.spines["left"].set_color(color)
             if i > 0:
                 axis.patch.set_visible(False)
@@ -949,15 +1026,12 @@ def save_weighted_graph_training_metrics(
             linewidth=2,
         )
         ax1.set_xlabel("Epoch")
-        ax1.set_title("Metrics vs. Epoch")
+        ax1.set_title(f"Metrics vs. Epoch - Partition {partition}")
         ax1.grid(axis="x", alpha=0.25)
-        right_axes = []
         for i, (curve, left_axis) in enumerate(zip(curves, axes_y)):
-            epochs, values, train_losses, label, color = curve
+            epochs_curve, values, train_losses, label, color = curve
 
-            right_axis = (
-                ax_loss if i == 0 else ax_loss.twinx()
-            )
+            right_axis = ax_loss if i == 0 else ax_loss.twinx()
             right_axis.plot(
                 train_losses,
                 values,
@@ -971,7 +1045,6 @@ def save_weighted_graph_training_metrics(
             right_axis.spines["right"].set_visible(False)
             right_axis.spines["left"].set_visible(False)
             right_axis.patch.set_visible(False)
-            right_axes.append(right_axis)
         ax_epoch = ax_loss.twinx()
         ax_epoch.plot(
             losses_df["train_loss"],
@@ -983,9 +1056,7 @@ def save_weighted_graph_training_metrics(
         ax_epoch.set_ylabel("Epoch", color="tab:blue")
         ax_epoch.tick_params(axis="y", colors="tab:blue")
         ax_epoch.spines["right"].set_color("tab:blue")
-        best_row = losses_df[
-            losses_df["epoch"] == best_epoch
-        ]
+        best_row = losses_df[losses_df["epoch"] == best_epoch]
         if not best_row.empty:
             best_train_loss = best_row["train_loss"].iloc[0]
             ax_loss.axvline(
@@ -995,6 +1066,7 @@ def save_weighted_graph_training_metrics(
                 linewidth=2,
             )
         ax_loss.set_xlabel("Train loss")
+        ax_loss.invert_xaxis()
         ax_loss.set_title("Metrics vs. Training Loss")
         ax_loss.grid(axis="x", alpha=0.25)
         fig.subplots_adjust(
@@ -1007,39 +1079,45 @@ def save_weighted_graph_training_metrics(
         fig.savefig(
             os.path.join(
                 output_path,
-                f"training_metrics_hidden_layer_{hidden_layer}.pdf",
+                f"training_metrics_partition_{partition}.pdf",
             ),
             format="pdf",
             bbox_inches="tight",
         )
         plt.close(fig)
 
+
 def save_disparity_distribution_plots(disparity_index_path, output_path, epochs):
     os.makedirs(output_path, exist_ok=True)
     df = pd.read_csv(disparity_index_path)
-    for neuron_type in ("input", "hidden"):
-        fig, axes = plt.subplots(
-            1,
-            len(epochs),
-            figsize=(15, 4),
-            squeeze=False,
-        )
-        axes = axes[0]
-        for ax, epoch in zip(axes, epochs):
-            rows = df[(df["epoch"] == epoch) & (df["neuron_type"] == neuron_type)]
-            plot_disparity_degree_distribution(
-                ax,
-                rows,
-                neuron_type,
+    for partition in sorted(df["partition"].unique()):
+        partition_df = df[df["partition"] == partition]
+        for neuron_type in ("in", "out"):
+            fig, axes = plt.subplots(
+                1,
+                len(epochs),
+                figsize=(15, 4),
+                squeeze=False,
             )
-            ax.set_title(f"Epoch {epoch}")
-        fig.tight_layout()
-        fig.savefig(
-            os.path.join(
-                output_path,
-                f"disparity_{neuron_type}_degree_distribution.pdf",
-            ),
-            format="pdf",
-            bbox_inches="tight",
-        )
-        plt.close(fig)
+            axes = axes[0]
+            for ax, epoch in zip(axes, epochs):
+                rows = partition_df[
+                    (partition_df["epoch"] == epoch)
+                    & (partition_df["neuron_type"] == neuron_type)
+                ]
+                plot_disparity_degree_distribution(
+                    ax,
+                    rows,
+                    neuron_type,
+                )
+                ax.set_title(f"Epoch {epoch}")
+            fig.tight_layout()
+            fig.savefig(
+                os.path.join(
+                    output_path,
+                    f"partition_{partition}_{neuron_type}_degree_distribution.pdf",
+                ),
+                format="pdf",
+                bbox_inches="tight",
+            )
+            plt.close(fig)

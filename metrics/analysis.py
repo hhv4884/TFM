@@ -93,37 +93,20 @@ def strength(weight):
     return input_strength, output_strength
 
 
-def strength_index(
-    incoming_weight, outgoing_weight, epoch, strength_path, hidden_layer
-):
-    input_strength, _ = strength(incoming_weight)
-    _, output_strength = strength(outgoing_weight)
-    total_strength = input_strength + output_strength
-    n_nodes = (
-        incoming_weight.shape[1] + incoming_weight.shape[0] + outgoing_weight.shape[0]
-    )
-    n_edges = (
-        torch.count_nonzero(incoming_weight).item()
-        + torch.count_nonzero(outgoing_weight).item()
-    )
+def strength_index(weight, epoch, strength_path, partition_number):
+    input_strength, output_strength = strength(weight)
     update_csv_strength_info(
         epoch,
-        hidden_layer,
+        partition_number,
         input_strength,
         output_strength,
-        total_strength,
         strength_path,
-        n_edges,
-        n_nodes,
     )
 
 
-def hidden_weighted_bipartite_clustering(fc1, fc2):
-    W1 = fc1.weight.detach()
-    W2 = fc2.weight.detach()
-    K = torch.cat([W1.T, W2], dim=0).double()
-    wmax = K.abs().max()
-    Kb = K.T
+def weighted_clustering(Kb):
+    Kb = Kb.detach().double()
+    wmax = Kb.abs().max()
     Ka = Kb.abs()
     Wsq = Ka**2
     P = Kb @ Kb.T
@@ -137,27 +120,39 @@ def hidden_weighted_bipartite_clustering(fc1, fc2):
     return c
 
 
-def weighted_clustering_index(fc1, fc2, epoch, clustering_path, hidden_layer):
-    coefficients = hidden_weighted_bipartite_clustering(fc1, fc2)
-    coefficients = coefficients.detach().cpu().numpy()
-    mean = float(np.nanmean(coefficients))
-    median = float(np.nanmedian(coefficients))
-    std_dev = float(np.nanstd(coefficients))
-    n_nodes = fc1.weight.shape[1] + fc1.weight.shape[0] + fc2.weight.shape[0]
-    n_edges = (
-        torch.count_nonzero(fc1.weight).item() + torch.count_nonzero(fc2.weight).item()
-    )
-    update_csv_weighted_clustering_info(
-        epoch,
-        hidden_layer,
-        coefficients,
-        mean,
-        median,
-        std_dev,
-        clustering_path,
-        n_edges,
-        n_nodes,
-    )
+def input_weighted_bipartite_clustering(fc):
+    W = fc.weight.detach().double()
+    cc_out = weighted_clustering(W)
+    cc_in = weighted_clustering(W.T)
+    return cc_in, cc_out
+
+
+def weighted_clustering_index(fc, epoch, clustering_path, partition_number):
+    cc_in, cc_out = input_weighted_bipartite_clustering(fc)
+    W = fc.weight.detach()
+    n_edges = torch.count_nonzero(W).item()
+    n_nodes = W.shape[0] + W.shape[1]
+    for neuron_type, coefficients in [("in", cc_in), ("out", cc_out),]:
+        coefficients = coefficients.cpu().numpy()
+        valid = coefficients[np.isfinite(coefficients)]
+        if len(valid) > 0:
+            mean = float(np.mean(valid))
+            median = float(np.median(valid))
+            std_dev = float(np.std(valid))
+        else:
+            mean = median = std_dev = float("nan")
+        update_csv_weighted_clustering_info(
+            epoch,
+            partition_number,
+            neuron_type,
+            coefficients,
+            mean,
+            median,
+            std_dev,
+            clustering_path,
+            n_edges,
+            n_nodes,
+        )
 
 
 def backbone_index(
@@ -222,7 +217,7 @@ def disparity_filter_index(
     fc1, epoch, alpha, both_ends, disparity_path, partition_number=1
 ):
     keep = hidden_disparity_filter(fc1, alpha=alpha, both_ends=both_ends)
-    update_csv_disparity_info(epoch, keep, disparity_path,)
+    update_csv_disparity_info(epoch, partition_number, keep, disparity_path)
     disparity_weight = keep.float()
     degree_index(disparity_weight, epoch, 0.5, disparity_path, partition_number)
     clustering_index(disparity_weight, epoch, 0.5, disparity_path, partition_number)
@@ -277,37 +272,36 @@ def analyze_all_partitions(
                 )
     if calculate_strength:
         strength_path = os.path.join(csv_path, "weighted_graph", "strength")
-        for i in range(len(partitions) - 1):
+        for partition_number, layer in enumerate(partitions, start=1):
             strength_index(
-                partitions[i].weight,
-                partitions[i + 1].weight,
+                layer.weight,
                 epoch,
                 strength_path,
-                hidden_layer=i + 1,
+                partition_number,
             )
     if calculate_weighted_clustering:
         clustering_path = os.path.join(csv_path, "weighted_graph", "clustering")
-        for i in range(len(partitions) - 1):
+        for partition_number, layer in enumerate(partitions, start=1):
             weighted_clustering_index(
-                partitions[i],
-                partitions[i + 1],
+                layer,
                 epoch,
                 clustering_path,
-                hidden_layer=i + 1,
+                partition_number,
             )
     if calculate_disparity:
         for alpha in disparity_alphas:
             if not 0 < alpha <= 1:
                 raise ValueError(f"disparity alpha debe estar en (0, 1]: {alpha}")
-            disparity_path = os.path.join(
-                csv_path,
-                f"disparity_alpha_{alpha:g}" f"_both_ends_{disparity_both_ends}",
-            )
-            disparity_filter_index(
-                fc1=partitions[0],
-                epoch=epoch,
-                alpha=alpha,
-                both_ends=disparity_both_ends,
-                disparity_path=disparity_path,
-                partition_number=1,
-            )
+            for partition_number, layer in enumerate(partitions, start=1):
+                disparity_path = os.path.join(
+                    csv_path,
+                    f"disparity_alpha_{alpha:g}" f"_both_ends_{disparity_both_ends}",
+                )
+                disparity_filter_index(
+                    fc1=layer,
+                    epoch=epoch,
+                    alpha=alpha,
+                    both_ends=disparity_both_ends,
+                    disparity_path=disparity_path,
+                    partition_number=partition_number,
+                )
